@@ -29,8 +29,6 @@ Resources:
                 Protocol: !Ref RedirectDestinationProtocol
                 ReplaceKeyPrefixWith: !Ref RedirectDestinationPath
                 HttpRedirectCode: 301
-              RoutingRuleCondition:
-                KeyPrefixEquals: /
 
     WebsiteBucketPolicy:
       Type: AWS::S3::BucketPolicy
@@ -49,10 +47,10 @@ Resources:
       Properties:
         DistributionConfig:
           Origins:
-            - DomainName: !GetAtt WebsiteBucket.DomainName
+            - DomainName: !Sub ${WebsiteBucket}.s3-website-${AWS::Region}.amazonaws.com
               Id: Origin
-              S3OriginConfig:
-                OriginAccessIdentity: ""
+              CustomOriginConfig:
+                OriginProtocolPolicy: https-only
           DefaultCacheBehavior:
             ForwardedValues:
               QueryString: false
@@ -79,15 +77,15 @@ Resources:
       Properties:
         DomainName: !Sub ${Subdomain}.${HostedZoneName}
         DomainValidationOptions:
-          - DomainName: !Sub ${Subdomain}.${HostedZoneName
+          - DomainName: !Sub ${Subdomain}.${HostedZoneName}
             ValidationDomain: !Ref HostedZoneName
 
     DnsCname:
       Type: AWS::Route53::RecordSetGroup
       Properties:
-        HostedZoneName: !Ref HostedZoneName 
+        HostedZoneName: !Sub ${HostedZoneName }.
         RecordSets:
-          - Name: !Sub ${Subdomain}.${HostedZoneName
+          - Name: !Sub ${Subdomain}.${HostedZoneName}
             Type: CNAME
             TTL: 60
             ResourceRecords:
