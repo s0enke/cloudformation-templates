@@ -1,0 +1,94 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: URL redirector including CDN, HTTPS and the Certificate
+Parameters:
+  Subdomain:
+    Type: String
+  HostedZoneName:
+    Type: String
+    Description: Hosted Zone which needs to be in the same AWS account
+  RedirectDestinationHostName:
+    Type: String
+    Description: Hostname of the redirect destination
+  RedirectDestinationProtocol:
+    Type: String
+    Description: Protocol of the redirect destination
+  RedirectDestinationPath:
+    Type: String
+    Description: Path of the redirect destination
+
+Resources:
+    WebsiteBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        AccessControl: PublicRead
+        WebsiteConfiguration:
+          IndexDocument: index.html
+          RoutingRules:
+            - RedirectRule:
+                HostName: !Ref RedirectDestinationHostName
+                Protocol: !Ref RedirectDestinationProtocol
+                ReplaceKeyPrefixWith: !Ref RedirectDestinationPath
+                HttpRedirectCode: 301
+              RoutingRuleCondition:
+                KeyPrefixEquals: /
+
+    WebsiteBucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        Bucket: !Ref WebsiteBucket
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            Effect: Allow
+            Principal: "*"
+            Action: s3:GetObject
+            Resource: !Sub arn:aws:s3:::${WebsiteBucket}/*
+
+    WebsiteCdn:
+      Type: AWS::CloudFront::Distribution
+      Properties:
+        DistributionConfig:
+          Origins:
+            - DomainName: !GetAtt WebsiteBucket.DomainName
+              Id: Origin
+              S3OriginConfig:
+                OriginAccessIdentity: ""
+          DefaultCacheBehavior:
+            ForwardedValues:
+              QueryString: false
+            TargetOriginId: Origin
+            ViewerProtocolPolicy: redirect-to-https
+          Enabled: true
+          DefaultRootObject: index.html
+          Aliases:
+            - !Sub ${Subdomain}.${HostedZoneName} 
+          ViewerCertificate:
+            AcmCertificateArn: !Ref WebsiteCertificate
+            SslSupportMethod: sni-only
+          Logging:
+            Bucket: !GetAtt WebsiteCdnLogBucket.DomainName
+            IncludeCookies: true
+
+    WebsiteCdnLogBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        AccessControl: BucketOwnerFullControl
+
+    WebsiteCertificate:
+      Type: AWS::CertificateManager::Certificate
+      Properties:
+        DomainName: !Sub ${Subdomain}.${HostedZoneName}
+        DomainValidationOptions:
+          - DomainName: !Sub ${Subdomain}.${HostedZoneName
+            ValidationDomain: !Ref HostedZoneName
+
+    DnsCname:
+      Type: AWS::Route53::RecordSetGroup
+      Properties:
+        HostedZoneName: !Ref HostedZoneName 
+        RecordSets:
+          - Name: !Sub ${Subdomain}.${HostedZoneName
+            Type: CNAME
+            TTL: 60
+            ResourceRecords:
+              - !GetAtt WebsiteCdn.DomainName
