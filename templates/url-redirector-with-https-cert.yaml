@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: URL redirector including CDN, HTTPS and the Certificate
+Description: HTTPS/HTTP URL redirector including CDN, HTTPS and the certificate
 Parameters:
   Subdomain:
     Type: String
@@ -50,14 +50,13 @@ Resources:
             - DomainName: !Sub ${WebsiteBucket}.s3-website-${AWS::Region}.amazonaws.com
               Id: Origin
               CustomOriginConfig:
-                OriginProtocolPolicy: https-only
+                OriginProtocolPolicy: http-only
           DefaultCacheBehavior:
             ForwardedValues:
               QueryString: false
             TargetOriginId: Origin
             ViewerProtocolPolicy: redirect-to-https
           Enabled: true
-          DefaultRootObject: index.html
           Aliases:
             - !Sub ${Subdomain}.${HostedZoneName} 
           ViewerCertificate:
