@@ -1,0 +1,217 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Infrastructure for CloudFormation templates, e.g. pipeline and bucket 
+Parameters:
+  GithubOauthToken:
+    Type: String
+  GithubRepoOwner:
+    Type: String
+  GithubRepoName:
+    Type: String
+  GithubRepoBranch:
+    Type: String
+    Default: master
+  InfrastructureTemplatePath:
+    Type: String
+    Default: infrastructure.yml
+  InfrastructureStackName:
+    Type: String
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Source Code Repository
+        Parameters:
+          - GithubRepoOwner
+          - GithubRepoName
+          - GithubRepoBranch
+          - GithubOauthToken
+Resources:
+  ArtifactStoreBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      VersioningConfiguration:
+        Status: Enabled
+      AccessControl: BucketOwnerFullControl
+  Pipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      RoleArn: !GetAtt [PipelineRole, Arn]
+      ArtifactStore:
+        Location:
+          Ref:
+            ArtifactStoreBucket
+        Type: S3
+      Stages:
+        - Name: Source
+          Actions:
+            - InputArtifacts: []
+              Name: Source
+              ActionTypeId:
+                Category: Source
+                Owner: ThirdParty
+                Version: 1
+                Provider: GitHub
+              OutputArtifacts:
+                - Name: SourceOutput
+              Configuration:
+                Owner: !Ref GithubRepoOwner
+                Repo: !Ref GithubRepoName
+                Branch: !Ref GithubRepoBranch
+                OAuthToken: !Ref GithubOauthToken
+              RunOrder: 1
+        - Name: DeployInfrastructure
+          Actions:
+          - Name: CreateStack
+            ActionTypeId:
+              Category: Deploy
+              Owner: AWS
+              Provider: CloudFormation
+              Version: '1'
+            InputArtifacts:
+              - Name: SourceOutput
+            OutputArtifacts:
+              - Name: DeployInfrastructureStackOutput
+            Configuration:
+              RoleArn: !GetAtt [InfrastructureStackRole, Arn]
+              TemplatePath: !Sub "SourceOutput::${InfrastructureTemplatePath}"
+              ActionMode: CREATE_UPDATE
+              StackName: !Ref InfrastructureStackName
+              OutputFileName: cfn.json
+            RunOrder: 1
+        - Name: DeployApp
+          Actions:
+          - Name: DeployFrontend
+            ActionTypeId:
+                Category: Invoke
+                Owner: AWS
+                Version: 1
+                Provider: Lambda
+            InputArtifacts:
+              - Name: SourceOutput
+              - Name: DeployInfrastructureStackOutput
+            Configuration:
+                FunctionName: !Ref DeployFrontendFunction
+            RunOrder: 1
+  PipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: codepipeline.amazonaws.com
+          Action: sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+  InfrastructureStackRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: cloudformation.amazonaws.com
+          Action: sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+
+  DeployFrontendFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        ZipFile: |
+          import boto3
+          from boto3.session import Session
+          import botocore
+          import tempfile
+          import zipfile
+          import json
+
+          code_pipeline = boto3.client('codepipeline')
+
+          def handler(event, context):
+
+            job = event['CodePipeline.job'];
+            job_data = job['data']
+            job_id = job['id']
+            source_artifact = job_data['inputArtifacts'][0];
+            infrastructure_stack_output_artifact = job_data['inputArtifacts'][1];
+            print job_data['inputArtifacts']
+
+            key_id = job_data['artifactCredentials']['accessKeyId']
+            key_secret = job_data['artifactCredentials']['secretAccessKey']
+            session_token = job_data['artifactCredentials']['sessionToken']
+
+            # download source_artifacts
+            session = Session(
+              aws_access_key_id=key_id,
+              aws_secret_access_key=key_secret,
+              aws_session_token=session_token
+            )
+            s3 = session.client('s3', config=botocore.client.Config(signature_version='s3v4'))
+
+            source_artifact_file = tempfile.NamedTemporaryFile()
+            s3.download_file(
+              source_artifact['location']['s3Location']['bucketName'],
+              source_artifact['location']['s3Location']['objectKey'],
+              source_artifact_file.name
+            )
+            zip_ref = zipfile.ZipFile(source_artifact_file.name, 'r')
+            zip_ref.extractall('/tmp')
+            zip_ref.close()
+
+            # return success
+            code_pipeline.put_job_success_result(jobId=job_id)
+
+            import os
+            os.system("ls -al /tmp")
+            os.chdir("/tmp")
+            os.system("curl -o node.xz https://nodejs.org/dist/v6.9.1/node-v6.9.1-linux-x64.tar.xz")
+            os.system("tar xf node.xz")
+            os.system("/tmp/node-v6.9.1-linux-x64/bin/npm help")
+
+            os.system("ls -al /tmp")
+            os.system("ls -al /tmp/frontend")
+
+            os.environ["HOME"] = "/tmp"
+
+            os.chdir("/tmp/frontend")
+            os.system("/tmp/node-v6.9.1-linux-x64/bin/npm install")
+            os.system("/tmp/node-v6.9.1-linux-x64/bin/npm run build")
+
+            infrastructure_stack_output_artifact_file = tempfile.NamedTemporaryFile()
+            s3.download_file(
+              infrastructure_stack_output_artifact['location']['s3Location']['bucketName'],
+              infrastructure_stack_output_artifact['location']['s3Location']['objectKey'],
+              infrastructure_stack_output_artifact_file.name
+            )
+            zip_ref = zipfile.ZipFile(infrastructure_stack_output_artifact_file.name, 'r')
+            zip_ref.extractall('/tmp')
+            zip_ref.close()
+
+            infrastructure_config = json.load(open("/tmp/cfn.json"))
+            print infrastructure_config
+
+
+      Handler: index.handler
+      Role: !GetAtt [DeployFrontendFunctionRole, Arn]
+      Runtime: python2.7
+      Timeout: 300
+
+  DeployFrontendFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/AdministratorAccess
