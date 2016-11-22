@@ -1,5 +1,5 @@
 {
-  "name": "serverless-backend-npm-frontend-pipeline",
+  "name": "cloudformation-templates-lambda-helpers",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
