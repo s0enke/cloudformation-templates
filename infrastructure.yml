@@ -180,9 +180,7 @@ Resources:
           var codepipeline = new AWS.CodePipeline();
           var s3;
 
-          // for NPM, it needs a writable home directory
           process.env.HOME = '/tmp';
-
           exports.handler = function(event, context) {
 
             var job = event['CodePipeline.job'];
@@ -197,8 +195,6 @@ Resources:
             doAction(npmAction, event, context);
           }
 
-
-          // run an action
           function doAction(actionFunction, event, context) {
             var promise;
             try {
@@ -209,33 +205,33 @@ Resources:
 
             promise
               .then(function() {
-                  var params = {
-                      jobId: event["CodePipeline.job"].id
-                  };
-                  codepipeline.putJobSuccessResult(params, function(err, data) {
-                      if(err) {
-                          context.fail(err);
-                      } else {
-                          context.succeed("Action complete.");
-                      }
-                  });
+                var params = {
+                  jobId: event["CodePipeline.job"].id
+                };
+                codepipeline.putJobSuccessResult(params, function(err, data) {
+                  if(err) {
+                    context.fail(err);
+                  } else {
+                    context.succeed("Action complete.");
+                  }
+                });
               }).catch( function(message) {
-                  var m = JSON.stringify(message);
-                  console.error("Failure: "+m);
+                var m = JSON.stringify(message);
+                console.error("Failure: "+m);
 
-                  var params = {
-                      jobId: event["CodePipeline.job"].id,
-                      failureDetails: {
-                          message: m,
-                          type: 'JobFailed',
-                          externalExecutionId: context.invokeid
-                      }
-                  };
+                var params = {
+                  jobId: event["CodePipeline.job"].id,
+                  failureDetails: {
+                    message: m,
+                    type: 'JobFailed',
+                    externalExecutionId: context.invokeid
+                  }
+                };
 
-                  codepipeline.putJobFailureResult(params, function(err, data) {
-                      context.fail(m);
-                  });
-              });
+                codepipeline.putJobFailureResult(params, function(err, data) {
+                    context.fail(m);
+                });
+            });
           }
 
           function npmAction(jobDetails) {
@@ -243,78 +239,71 @@ Resources:
             var artifactZipPath = '/tmp/source.zip';
             var artifactExtractPath = '/tmp/source/';
             return downloadInputArtifact(jobDetails, artifactName, artifactZipPath)
-                .then(function () {
-                    return extractZip(artifactZipPath, artifactExtractPath);
-                }).then(function () {
-                    return npmInstallAndServerlessDeploy(artifactExtractPath + 'lambda');
-                });
+              .then(function () {
+                return extractZip(artifactZipPath, artifactExtractPath);
+              }).then(function () {
+                return npmInstallAndServerlessDeploy(artifactExtractPath + 'lambda');
+              });
           }
 
           function downloadInputArtifact(jobDetails, artifactName, dest) {
-            console.log("Downloading input artifact '" + artifactName + "' to '"+dest+"'");
-
             var artifact = null;
             jobDetails.data.inputArtifacts.forEach(function (a) {
-
-                if (a.name == artifactName) {
-                    artifact = a;
-                }
+              if (a.name == artifactName) {
+                  artifact = a;
+              }
             });
 
             if (artifact != null && artifact.location.type == 'S3') {
-                var params = {
-                    Bucket: artifact.location.s3Location.bucketName,
-                    Key: artifact.location.s3Location.objectKey
-                };
-                return getS3Object(params, dest);
+              var params = {
+                Bucket: artifact.location.s3Location.bucketName,
+                Key: artifact.location.s3Location.objectKey
+              };
+              return getS3Object(params, dest);
             } else {
-                return Promise.reject("Unknown Source Type:" + JSON.stringify(sourceOutput));
+              return Promise.reject("Unknown Source Type:" + JSON.stringify(sourceOutput));
             }
           }
 
-
           function getS3Object(params, dest) {
             return new Promise(function(resolve,reject) {
-                console.log("Getting S3 Object '" + params.Bucket+"/"+params.Key + "' to '"+dest+"'");
-                var file = fs.createWriteStream(dest);
-                s3.getObject(params)
-                    .createReadStream()
-                    .on('error', reject)
-                    .pipe(file)
-                    .on('close', resolve);
+              var file = fs.createWriteStream(dest);
+              s3.getObject(params)
+                .createReadStream()
+                .on('error', reject)
+                .pipe(file)
+                .on('close', resolve);
             });
           }
 
           function extractZip(sourceZip,destDirectory) {
             return new Promise(function (resolve, reject) {
-                console.log("Extracting zip: '"+sourceZip+"' to '"+destDirectory+"'");
-                try {
-                    childProcess.execSync('rm -fr ' + destDirectory, {encoding: 'utf-8'});
-                    fs.mkdirSync(destDirectory);
-                    process.chdir(destDirectory);
-                    childProcess.execSync('unzip -o ' + sourceZip, {encoding: 'utf-8'});
-                    resolve(true);
-                } catch (e) {
-                    reject(e);
-                }
+              console.log("Extracting zip: '"+sourceZip+"' to '"+destDirectory+"'");
+              try {
+                childProcess.execSync('rm -fr ' + destDirectory, {encoding: 'utf-8'});
+                fs.mkdirSync(destDirectory);
+                process.chdir(destDirectory);
+                childProcess.execSync('unzip -o ' + sourceZip, {encoding: 'utf-8'});
+                resolve(true);
+              } catch (e) {
+                reject(e);
+              }
             });
           }
 
           function npmInstallAndServerlessDeploy(destDirectory) {
             return new Promise(function (resolve, reject) {
-                try {
-                    process.chdir(destDirectory);
-                    childProcess.execSync('npm install serverless@1.2.0  --progress=false', {encoding: 'utf-8'});
-                    childProcess.execSync('npm install --progress=false', {encoding: 'utf-8'});
-                    childProcess.execSync('serverless deploy', {encoding: 'utf-8'});
-                    resolve(true);
-                } catch (e) {
-                    reject(e);
-                }
+              try {
+                process.chdir(destDirectory);
+                childProcess.execSync('npm install serverless@1.2.0  --progress=false', {encoding: 'utf-8'});
+                childProcess.execSync('npm install --progress=false', {encoding: 'utf-8'});
+                childProcess.execSync('serverless deploy', {encoding: 'utf-8'});
+                resolve(true);
+              } catch (e) {
+                reject(e);
+              }
             });
           }
-
-
       Handler: index.handler
       Environment:
         Variables:
