@@ -295,9 +295,9 @@ Resources:
             return new Promise(function (resolve, reject) {
               try {
                 process.chdir(destDirectory);
-                childProcess.execSync('npm install serverless@1.2.0  --progress=false', {encoding: 'utf-8'});
+                childProcess.execSync('npm install serverless@1.2.0 -g --prefix=/tmp', {encoding: 'utf-8'});
                 childProcess.execSync('npm install --progress=false', {encoding: 'utf-8'});
-                childProcess.execSync('serverless deploy', {encoding: 'utf-8'});
+                console.log(childProcess.execSync('/tmp/lib/node_modules/serverless/bin/serverless deploy', {encoding: 'utf-8'}));
                 resolve(true);
               } catch (e) {
                 reject(e);
@@ -311,6 +311,7 @@ Resources:
       Role: !GetAtt [DeployLambdasFunctionRole, Arn]
       Runtime: nodejs4.3
       Timeout: 300
+      MemorySize: 1024
 
   DeployLambdasFunctionRole:
     Type: AWS::IAM::Role
