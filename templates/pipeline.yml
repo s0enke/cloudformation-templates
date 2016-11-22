@@ -332,14 +332,13 @@ Resources:
                       process.chdir(destDirectory);
                       var files = walkSync(destDirectory);
                       files.forEach(function(file) {
-                          mimeType = childProcess.execSync("file -b --mime-type " + file, {encoding: 'utf-8'}).trim();
+                          contentType = contentTypeMap(file)
                           relativeFilePath = file.replace(destDirectory, '');
-                          console.log(file, relativeFilePath, mimeType);
                           s3WebsiteBucketClient.putObject({
                               'Bucket': config['WebsiteBucket'],
                               'Key': relativeFilePath,
                               'Body': fs.createReadStream(file),
-                              'ContentType': mimeType
+                              'ContentType': contentType
                           }, function(err, data) {
                                 if (err) {
                                   console.log(err);
@@ -352,6 +351,7 @@ Resources:
 
                       resolve(true);
                   } catch (e) {
+                      console.log(e);
                       reject(e);
                   }
               });
@@ -371,6 +371,27 @@ Resources:
             });
             return filelist;
           };
+
+
+          function contentTypeMap(filename) {
+               var map = {
+                   'jpg':  'image/jpeg',
+                   'png':  'image/png',
+                   'svg':  'image/svg+xml',
+                   'html': 'text/html',
+                   'css':  'text/css',
+                   'json': 'text/json',
+                   'ico':  'image/x-icon'
+               };
+
+               extension = filename.split('.').pop();
+               if (extension in map) {
+                   return map[extension];
+               } else {
+                   return 'application/octet-stream';
+               }
+
+          }
       Handler: index.handler
       Role: !GetAtt [DeployFrontendFunctionRole, Arn]
       Runtime: nodejs4.3
