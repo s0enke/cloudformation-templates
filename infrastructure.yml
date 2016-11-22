@@ -1,0 +1,157 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Infrastructure for CloudFormation templates, e.g. pipeline and bucket 
+Parameters:
+  TemplateBucketName:
+    Type: String
+    Default: ruempler-cloudformation-templates
+  GithubOauthToken:
+    Type: String
+Resources:
+
+  LambdaFunctionBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: PublicRead
+
+  TemplateBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref TemplateBucketName
+      AccessControl: PublicRead
+
+  TemplateBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref TemplateBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          Effect: Allow
+          Principal: "*"
+          Action: s3:GetObject
+          Resource: !Sub arn:aws:s3:::${TemplateBucket}/*
+
+  ArtifactStoreBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      VersioningConfiguration:
+        Status: Enabled
+      AccessControl: BucketOwnerFullControl
+
+  Pipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      RoleArn:
+        Fn::GetAtt:
+          - PipelineRole
+          - Arn
+      ArtifactStore:
+        Location:
+          Ref:
+            ArtifactStoreBucket
+        Type: S3
+      Stages:
+        - Name: source
+          Actions:
+            - InputArtifacts: []
+              Name: Source
+              ActionTypeId:
+                Category: Source
+                Owner: ThirdParty
+                Version: 1
+                Provider: GitHub
+              OutputArtifacts:
+                - Name: SourceOutput
+              Configuration:
+                Owner: s0enke
+                Repo: cloudformation-templates
+                Branch: master
+                OAuthToken:
+                  Ref: GithubOauthToken
+              RunOrder: 1        
+        - Name: validate_and_deploy_templates
+          Actions:
+            - InputArtifacts:
+                - Name: SourceOutput
+              Name: ValidateAndDeployTemplates
+              ActionTypeId:
+                Category: Invoke
+                Owner: AWS
+                Version: 1
+                Provider: Lambda
+              OutputArtifacts: []
+              Configuration:
+                FunctionName:
+                  Ref: ValidateAndDeployFunction
+              RunOrder: 1
+  PipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: codepipeline.amazonaws.com
+          Action: sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+  ValidateAndDeployFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        ZipFile: |
+          import boto3
+          from boto3.session import Session
+          import botocore
+          import tempfile
+          import zipfile
+          import json
+
+          code_pipeline = boto3.client('codepipeline')
+          cf = boto3.client('cloudformation')
+
+          def handler(event, context):
+
+            job = event['CodePipeline.job'];
+            job_data = job['data']
+            job_id = job['id']
+            artifact = job_data['inputArtifacts'][0];
+
+            key_id = job_data['artifactCredentials']['accessKeyId']
+            key_secret = job_data['artifactCredentials']['secretAccessKey']
+            session_token = job_data['artifactCredentials']['sessionToken']
+
+            stack_name = 'react-boilerplate-ci-infrastructure'
+            file_in_zip_yaml = 'ci_build/infrastructure.yml'
+            cfn_yaml_file = '/tmp/infrastructure.yml'
+
+            # download artifact
+            session = Session(aws_access_key_id=key_id,
+            aws_secret_access_key=key_secret,
+            aws_session_token=session_token)
+            s3 = session.client('s3', config=botocore.client.Config(signature_version='s3v4'))
+
+            tmp_file = tempfile.NamedTemporaryFile()
+            bucket = artifact['location']['s3Location']['bucketName']
+            key = artifact['location']['s3Location']['objectKey']
+
+            code_pipeline.put_job_success_result(jobId=job_id)
+      Handler: index.handler
+      Role: !GetAtt ValidateAndDeployFunctionRole.Arn
+      Timeout: 300
+      Runtime: python2.7
+
+  ValidateAndDeployFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
