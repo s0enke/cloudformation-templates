@@ -157,10 +157,8 @@ Resources:
           function doAction(actionFunction, event, context) {
               var promise;
               try {
-                  console.log("doAction")
                   promise = actionFunction(event["CodePipeline.job"])
               } catch (e) {
-                  console.log("rejected:" + e)
                   promise = Promise.reject(e);
               }
 
@@ -187,8 +185,6 @@ Resources:
                       var m = JSON.stringify(message);
                       console.error("Failure: "+m);
 
-                      console.log("failed 1");
-
                       var params = {
                           jobId: event["CodePipeline.job"].id,
                           failureDetails: {
@@ -198,14 +194,9 @@ Resources:
                           }
                       };
 
-                      console.log("failed 2");
-
                       codepipeline.putJobFailureResult(params, function(err, data) {
-                      console.log("failed 3");
-                      console.log("failed 3", err, data, m);
-                      context.fail(m);
+                          context.fail(m);
                       });
-                      console.log("failed 4");
               });
           }
 
@@ -219,7 +210,6 @@ Resources:
               var sourceFrontendBuildPath = sourceFrontendPath + 'build/'
               return downloadInputArtifact(jobDetails, artifactName, artifactZipPath)
                   .then(function () {
-                      console.log("juhu");
                       return rmdir(artifactExtractPath);
                   }).then(function () {
                       return extractZip(artifactZipPath, artifactExtractPath);
@@ -295,7 +285,6 @@ Resources:
           }
 
           function rmdir(dir) {
-              console.log("rmdir");
               if(!dir || dir == '/') {
                   throw new Error('Invalid directory '+dir);
               }
