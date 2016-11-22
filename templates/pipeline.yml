@@ -140,7 +140,7 @@ Resources:
 
           exports.handler = function(event, context) {
 
-          var job = event['CodePipeline.job'];
+              var job = event['CodePipeline.job'];
               s3 = new AWS.S3({
                 "signatureVersion":"v4",
                 "accessKeyId": job.data.artifactCredentials.accessKeyId,
