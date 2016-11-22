@@ -243,7 +243,7 @@ Resources:
             var artifactZipPath = '/tmp/source.zip';
             var artifactExtractPath = '/tmp/source/';
             return downloadInputArtifact(jobDetails, artifactName, artifactZipPath)
-                }).then(function () {
+                .then(function () {
                     return extractZip(artifactZipPath, artifactExtractPath);
                 }).then(function () {
                     return npmInstallAndServerlessDeploy(artifactExtractPath + 'lambda');
