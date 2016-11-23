@@ -1,7 +1,11 @@
-service: cloudformation-templates-lambda-helpers
+service: cfn-templates-lambda-helpers
 
 provider:
   name: aws
   runtime: nodejs4.3
   deploymentBucket: ${env:DEPLOYMENT_BUCKET}
+  stage: ${env:DEPLOYMEMT_STAGE}
 
+functions:
+  deployFrontendAction:
+    handler: handler.deployFrontendAction

@@ -12,8 +12,15 @@ process.on('unhandledRejection', function(error, promise) {
 });
 
 
-exports.handler = function(event, context) {
-  
+exports.deployFrontendAction = function(event, context) {
+    doAction(deployFrontendAction, event, context);
+}
+
+
+  // run an action
+function doAction(actionFunction, event, context) {
+
+    // init s3 here as we have the event object
     var job = event['CodePipeline.job'];
     s3 = new AWS.S3({
       "signatureVersion":"v4",
@@ -21,14 +28,8 @@ exports.handler = function(event, context) {
       "secretAccessKey": job.data.artifactCredentials.secretAccessKey,
       "sessionToken": job.data.artifactCredentials.sessionToken
     });
-    
-    
-    doAction(npmAction, event, context);
-}
 
 
-  // run an action
-function doAction(actionFunction, event, context) {
     var promise;
     try {
         promise = actionFunction(event["CodePipeline.job"])
@@ -76,7 +77,7 @@ function handlePromise(promise, event, context) {
 
 
 // return: promise
-function npmAction(jobDetails) {
+function deployFrontendAction(jobDetails) {
     var artifactName = 'SourceOutput';
     var artifactZipPath = '/tmp/source.zip';    
     var artifactExtractPath = '/tmp/source/';

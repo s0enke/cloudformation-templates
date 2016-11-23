@@ -6,6 +6,10 @@ Parameters:
     Default: ruempler-cloudformation-templates
   GithubOauthToken:
     Type: String
+  DeploymentStage:
+    Type: String
+    Default: prod
+
 Resources:
 
   LambdaFunctionBucket:
@@ -308,6 +312,7 @@ Resources:
       Environment:
         Variables:
           DEPLOYMENT_BUCKET: !Ref LambdaFunctionBucket
+          DEPLOYMEMT_STAGE: !Ref DeploymentStage
       Role: !GetAtt [DeployLambdasFunctionRole, Arn]
       Runtime: nodejs4.3
       Timeout: 300
