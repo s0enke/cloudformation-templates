@@ -11,11 +11,9 @@ process.on('unhandledRejection', function(error, promise) {
   console.error("UNHANDLED REJECTION", error.stack);
 });
 
-
 exports.deployFrontendAction = function(event, context) {
     doAction(deployFrontendAction, event, context);
 }
-
 
   // run an action
 function doAction(actionFunction, event, context) {
