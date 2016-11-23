@@ -15,6 +15,10 @@ exports.deployFrontendAction = function(event, context) {
     doAction(deployFrontendAction, event, context);
 }
 
+exports.deployBackendAction = function(event, context) {
+    doAction(deployBackendAction, event, context);
+}
+
   // run an action
 function doAction(actionFunction, event, context) {
 
@@ -92,6 +96,22 @@ function deployFrontendAction(jobDetails) {
             return downloadInputArtifact(jobDetails, 'DeployInfrastructureStackOutput', '/tmp/DeployInfrastructureStackOutput.zip')
         }).then(function () {
             return uploadBuildToWebsiteBucket(sourceFrontendBuildPath);
+        });
+}
+
+// return: promise
+function deployBackendAction(jobDetails) {
+    var artifactName = 'SourceOutput';
+    var artifactZipPath = '/tmp/source.zip';
+    var artifactExtractPath = '/tmp/source/';
+    var sourcePath = artifactExtractPath + 'backend/'
+    return downloadInputArtifact(jobDetails, artifactName, artifactZipPath)
+        .then(function () {
+            return rmdir(artifactExtractPath);
+        }).then(function () {
+            return extractZip(artifactZipPath, artifactExtractPath);
+        }).then(function () {
+            return npmInstallAndServerlessDeploy(sourcePath);
         });
 }
 
@@ -193,6 +213,22 @@ function npmInstallAndBuild(destDirectory) {
         }
     });
 }
+
+function npmInstallAndServerlessDeploy(destDirectory) {
+    return new Promise(function (resolve, reject) {
+        try {
+            childProcess.execSync('npm install serverless@1.2.0 -g --prefix=/tmp', {encoding: 'utf-8'});
+
+            process.chdir(destDirectory);
+            childProcess.execSync('npm install --progress=false', {encoding: 'utf-8'});
+            console.log(childProcess.execSync('/tmp/lib/node_modules/serverless/bin/serverless deploy', {encoding: 'utf-8'}));
+            resolve(true);
+        } catch (e) {
+            reject(e);
+        }
+    });
+}
+
 
 function uploadBuildToWebsiteBucket(destDirectory) {
     return new Promise(function (resolve, reject) {

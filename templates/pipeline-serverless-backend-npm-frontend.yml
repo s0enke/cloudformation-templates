@@ -18,6 +18,9 @@ Parameters:
   DeployFrontendFunctionName:
     Type: String
     Default: cfn-templates-lambda-helpers-prod-deployFrontendAction
+  DeployBackendFunctionName:
+    Type: String
+    Default: cfn-templates-lambda-helpers-prod-deployBackendAction
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
@@ -83,6 +86,17 @@ Resources:
             RunOrder: 1
         - Name: DeployApp
           Actions:
+          - Name: DeployBackend
+            ActionTypeId:
+                Category: Invoke
+                Owner: AWS
+                Version: 1
+                Provider: Lambda
+            InputArtifacts:
+              - Name: SourceOutput
+            Configuration:
+                FunctionName: !Ref DeployBackendFunctionName
+            RunOrder: 1
           - Name: DeployFrontend
             ActionTypeId:
                 Category: Invoke
@@ -94,7 +108,7 @@ Resources:
               - Name: DeployInfrastructureStackOutput
             Configuration:
                 FunctionName: !Ref DeployFrontendFunctionName
-            RunOrder: 1
+            RunOrder: 2
   PipelineRole:
     Type: AWS::IAM::Role
     Properties:
