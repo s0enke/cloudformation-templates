@@ -3,8 +3,8 @@ service: cfn-templates-lambda-helpers
 provider:
   name: aws
   runtime: nodejs4.3
-  deploymentBucket: ${env:DEPLOYMENT_BUCKET}
-  stage: ${env:DEPLOYMEMT_STAGE}
+  deploymentBucket: ${env:CFN_TEMPLATES_DEPLOYMENT_BUCKET}
+  stage: ${env:CFN_TEMPLATES_DEPLOYMEMT_STAGE}
 
 functions:
   deployFrontendAction:
