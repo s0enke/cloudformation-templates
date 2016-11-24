@@ -13,3 +13,19 @@
   deactivate CloudFormation;
   @enduml
 )
+
+![](http://g.gravizo.com/g?
+  @startuml;
+  actor GitHub;
+  participant "CodePipeline";
+  participant "SourceStep";
+  participant "InfrastructureStep";
+  participant "InfrastructureStack";
+  participant "WebsiteBucket";
+  GitHub -> CodePipeline: triggers run;
+  CodePipeline -> SourceStep: invokes;
+  SourceStep -> CodePipeline: sends back artifact;
+  CodePipeline -> InfrastructureStep: invokes;
+  InfrastructureStep -> InfrastructureStack: creates from infrastructure.yml;
+  @enduml
+)
