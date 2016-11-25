@@ -1,6 +1,8 @@
 var childProcess = require('child_process');
 var fs = require('fs');
 var AWS = require('aws-sdk');
+var JSZip = require("jszip");
+
 var codepipeline = new AWS.CodePipeline();
 var cloudformation = new AWS.CloudFormation();
 var s3;
