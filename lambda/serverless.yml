@@ -23,7 +23,7 @@ resources:
     DeployFrontendFunctionRole:
       Type: AWS::IAM::Role
       Properties:
-        RoleName: CloudFormationTemplatesDeployFrontendFunctionRole-${env:DEPLOYMEMT_STAGE}
+        RoleName: CloudFormationTemplatesDeployFrontendFunctionRole-${env:CFN_TEMPLATES_DEPLOYMEMT_STAGE}
         AssumeRolePolicyDocument:
           Version: "2012-10-17"
           Statement:
@@ -37,7 +37,7 @@ resources:
     DeployBackendFunctionRole:
       Type: AWS::IAM::Role
       Properties:
-        RoleName: CloudFormationTemplatesDeployBackendFunctionRole-${env:DEPLOYMEMT_STAGE}
+        RoleName: CloudFormationTemplatesDeployBackendFunctionRole-${env:CFN_TEMPLATES_DEPLOYMEMT_STAGE}
         AssumeRolePolicyDocument:
           Version: "2012-10-17"
           Statement:
