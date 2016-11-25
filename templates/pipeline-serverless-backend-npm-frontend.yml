@@ -92,6 +92,8 @@ Resources:
                 Owner: AWS
                 Version: 1
                 Provider: Lambda
+            OutputArtifacts:
+              - Name: BackendOutput
             InputArtifacts:
               - Name: SourceOutput
             Configuration:

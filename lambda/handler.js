@@ -2,6 +2,7 @@ var childProcess = require('child_process');
 var fs = require('fs');
 var AWS = require('aws-sdk');
 var codepipeline = new AWS.CodePipeline();
+var cloudformation = new AWS.CloudFormation();
 var s3;
 
 // for NPM, it needs a writable home directory
@@ -105,6 +106,10 @@ function deployBackendAction(jobDetails) {
     var artifactZipPath = '/tmp/source.zip';
     var artifactExtractPath = '/tmp/source/';
     var sourcePath = artifactExtractPath + 'backend/'
+
+    var outArtifactName = 'BackendOutput';
+    var outArtifactZipPath = '/tmp/backend_output.zip';
+
     return downloadInputArtifact(jobDetails, artifactName, artifactZipPath)
         .then(function () {
             return rmdir(artifactExtractPath);
@@ -112,6 +117,12 @@ function deployBackendAction(jobDetails) {
             return extractZip(artifactZipPath, artifactExtractPath);
         }).then(function () {
             return npmInstallAndServerlessDeploy(sourcePath);
+        }).then(function () {
+            return describeCloudFormationStack('serverless-boilerplate-dev');
+        }).then(function (cloudformationStack) {
+            return zipBackendOutputs(outArtifactZipPath, cloudformationStack);
+//        }).then(function () {
+//            return uploadOutputArtifact(jobDetails, outArtifactName, outArtifactZipPath);
         });
 }
 
@@ -229,6 +240,45 @@ function npmInstallAndServerlessDeploy(destDirectory) {
     });
 }
 
+function describeCloudFormationStack(stackName) {
+    return new Promise(function (resolve, reject) {
+        try {
+            var params = {
+                "StackName": stackName
+            };
+                cloudformation.describeStacks(params, function(err, data) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(data['Stacks'][0]);
+                }
+            });
+        } catch (e) {
+            promise.reject(e);
+        }
+    });
+}
+
+function zipBackendOutputs(outArtifactZipPath, cloudformationStack) {
+    return new Promise(function (resolve, reject) {
+        try {
+            console.log(JSON.stringify(cloudformationStack["Outputs"]));
+
+            var zip = new JSZip();
+            zip.file('cfn.json', JSON.stringify(cloudformationStack["Outputs"]));
+            zip
+                .generateNodeStream()
+                .pipe(fs.createWriteStream(outArtifactZipPath))
+                .on('finish', function () {
+                    console.log(outArtifactZipPath + "written.");
+                    resolve();
+                });
+        } catch (e) {
+            reject(e);
+        }
+    });
+}
+
 
 function uploadBuildToWebsiteBucket(destDirectory) {
     return new Promise(function (resolve, reject) {
@@ -263,6 +313,42 @@ function uploadBuildToWebsiteBucket(destDirectory) {
             console.log(e);
             reject(e);
         }
+    });
+}
+
+function uploadOutputArtifact(jobDetails, artifactName, path) {
+    console.log("Uploading output artifact '" + artifactName + "' from '"+path+"'");
+
+    // Get the output artifact
+    var artifact = null;
+    jobDetails.data.outputArtifacts.forEach(function (a) {
+        if (a.name == artifactName) {
+            artifact = a;
+        }
+    });
+
+    if (artifact != null && artifact.location.type == 'S3') {
+        var params = {
+            Bucket: artifact.location.s3Location.bucketName,
+            Key: artifact.location.s3Location.objectKey
+        };
+        return putS3Object(params, path);
+    } else {
+        return Promise.reject("Unknown Source Type:" + JSON.stringify(sourceOutput));
+    }
+}
+
+function putS3Object(params, path) {
+    return new Promise(function(resolve,reject) {
+        console.log("Putting S3 Object '" + params.Bucket+"/"+params.Key + "' from '"+path+"'");
+        params.Body = fs.createReadStream(path);
+        s3.putObject(params, function(err, data) {
+            if(err) {
+                reject(err);
+            } else {
+                resolve(data);
+            }
+        });
     });
 }
 
