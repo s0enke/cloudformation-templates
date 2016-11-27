@@ -229,18 +229,13 @@ function npmInstallAndBuild(destDirectory, deployBackendArtifactZipPath) {
             process.chdir('/tmp');
             childProcess.execSync('unzip -o ' + deployBackendArtifactZipPath);
             backend_outputs = JSON.parse(fs.readFileSync('/tmp/cfn.json'));
-            backend_service_endpoint = backend_outputs.filter(function(output) {
+            process.env.REACT_APP_API_ENDPOINT = backend_outputs.filter(function(output) {
                 return output['OutputKey'] == 'ServiceEndpoint';
             })[0]['OutputValue'];
-            build_env = {
-                'REACT_APP_API_ENDPOINT': backend_service_endpoint,
-            }
-
-            console.log("Building frontend with build env: ", build_env)
 
             process.chdir(destDirectory);
             childProcess.execSync('npm install --progress=false ', {encoding: 'utf-8'});
-            childProcess.execSync('npm run build', {encoding: 'utf-8', env: build_env});
+            childProcess.execSync('npm run build', {encoding: 'utf-8'});
             resolve(true);
         } catch (e) {
             reject(e);
