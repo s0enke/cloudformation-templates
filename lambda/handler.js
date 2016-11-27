@@ -88,6 +88,10 @@ function deployFrontendAction(jobDetails) {
     var artifactExtractPath = '/tmp/source/';
     var sourceFrontendPath = artifactExtractPath + 'frontend/'
     var sourceFrontendBuildPath = sourceFrontendPath + 'build/'
+
+    var deployInfrastructureStackArtifactZipPath = '/tmp/DeployInfrastructureStackOutput.zip';
+    var deployInfrastructureStackArtifactName = 'DeployInfrastructureStackOutput';
+
     return downloadInputArtifact(jobDetails, artifactName, artifactZipPath)
         .then(function () {
             return rmdir(artifactExtractPath);
@@ -96,9 +100,9 @@ function deployFrontendAction(jobDetails) {
         }).then(function () {
             return npmInstallAndBuild(sourceFrontendPath);
         }).then(function () {
-            return downloadInputArtifact(jobDetails, 'DeployInfrastructureStackOutput', '/tmp/DeployInfrastructureStackOutput.zip')
+            return downloadInputArtifact(jobDetails, deployInfrastructureStackArtifactName, deployInfrastructureStackArtifactZipPath)
         }).then(function () {
-            return uploadBuildToWebsiteBucket(sourceFrontendBuildPath);
+            return uploadBuildToWebsiteBucket(deployInfrastructureStackArtifactZipPath, sourceFrontendBuildPath);
         });
 }
 
@@ -282,11 +286,11 @@ function zipBackendOutputs(outArtifactZipPath, cloudformationStack) {
 }
 
 
-function uploadBuildToWebsiteBucket(destDirectory) {
+function uploadBuildToWebsiteBucket(deployInfrastructureStackArtifactZipPath, destDirectory) {
     return new Promise(function (resolve, reject) {
         try {
             process.chdir('/tmp');
-            childProcess.execSync('unzip -o /tmp/DeployInfrastructureStackOutput.zip');
+            childProcess.execSync('unzip -o ' + deployInfrastructureStackArtifactZipPath);
             config = JSON.parse(fs.readFileSync('/tmp/cfn.json'));
             s3WebsiteBucketClient = new AWS.S3();
 
