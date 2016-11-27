@@ -109,7 +109,7 @@ function deployBackendAction(jobDetails) {
     var artifactExtractPath = '/tmp/source/';
     var sourcePath = artifactExtractPath + 'backend/'
 
-    var outArtifactName = 'BackendOutput';
+    var outArtifactName = 'DeployBackendOutput';
     var outArtifactZipPath = '/tmp/backend_output.zip';
 
     return downloadInputArtifact(jobDetails, artifactName, artifactZipPath)
@@ -123,8 +123,8 @@ function deployBackendAction(jobDetails) {
             return describeCloudFormationStack('serverless-boilerplate-dev');
         }).then(function (cloudformationStack) {
             return zipBackendOutputs(outArtifactZipPath, cloudformationStack);
-//        }).then(function () {
-//            return uploadOutputArtifact(jobDetails, outArtifactName, outArtifactZipPath);
+        }).then(function () {
+            return uploadOutputArtifact(jobDetails, outArtifactName, outArtifactZipPath);
         });
 }
 
@@ -272,7 +272,7 @@ function zipBackendOutputs(outArtifactZipPath, cloudformationStack) {
                 .generateNodeStream()
                 .pipe(fs.createWriteStream(outArtifactZipPath))
                 .on('finish', function () {
-                    console.log(outArtifactZipPath + "written.");
+                    console.log(outArtifactZipPath + " written.");
                     resolve();
                 });
         } catch (e) {

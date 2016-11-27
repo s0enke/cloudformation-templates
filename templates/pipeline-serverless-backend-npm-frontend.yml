@@ -93,7 +93,7 @@ Resources:
                 Version: 1
                 Provider: Lambda
             OutputArtifacts:
-              - Name: BackendOutput
+              - Name: DeployBackendOutput
             InputArtifacts:
               - Name: SourceOutput
             Configuration:
