@@ -298,11 +298,12 @@ Resources:
           function npmInstallAndServerlessDeploy(destDirectory) {
             return new Promise(function (resolve, reject) {
               try {
-                childProcess.execSync('npm install serverless@1.2.0 -g --prefix=/tmp', {encoding: 'utf-8'});
+                childProcess.execSync('rm -fr /tmp/npm', {encoding: 'utf-8'});
+                childProcess.execSync('npm install serverless@1.2.0 -g --prefix=/tmp/npm', {encoding: 'utf-8'});
 
                 process.chdir(destDirectory);
                 childProcess.execSync('npm install --progress=false', {encoding: 'utf-8'});
-                console.log(childProcess.execSync('/tmp/lib/node_modules/serverless/bin/serverless deploy', {encoding: 'utf-8'}));
+                console.log(childProcess.execSync('/tmp/npm/lib/node_modules/serverless/bin/serverless deploy', {encoding: 'utf-8'}));
                 resolve(true);
               } catch (e) {
                 reject(e);
