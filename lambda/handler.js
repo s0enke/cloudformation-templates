@@ -113,8 +113,8 @@ function deployBackendAction(jobDetails) {
     var artifactExtractPath = '/tmp/source/';
     var sourcePath = artifactExtractPath + 'backend/'
 
-    var outArtifactName = 'DeployBackendOutput';
-    var outArtifactZipPath = '/tmp/backend_output.zip';
+    var deployBackendArtifactName = 'DeployBackendOutput';
+    var deployBackendArtifactZipPath = '/tmp/backend_output.zip';
 
     return downloadInputArtifact(jobDetails, artifactName, artifactZipPath)
         .then(function () {
@@ -126,9 +126,9 @@ function deployBackendAction(jobDetails) {
         }).then(function () {
             return describeCloudFormationStack('serverless-boilerplate-dev');
         }).then(function (cloudformationStack) {
-            return zipBackendOutputs(outArtifactZipPath, cloudformationStack);
+            return zipBackendOutputs(deployBackendArtifactZipPath, cloudformationStack);
         }).then(function () {
-            return uploadOutputArtifact(jobDetails, outArtifactName, outArtifactZipPath);
+            return uploadOutputArtifact(jobDetails, deployBackendArtifactName, deployBackendArtifactZipPath);
         });
 }
 
