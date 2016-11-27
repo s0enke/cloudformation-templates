@@ -238,8 +238,6 @@ function npmInstallAndBuild(destDirectory, deployBackendArtifactZipPath) {
             childProcess.execSync('npm run build', {encoding: 'utf-8'});
             resolve(true);
         } catch (e) {
-            console.log(new Error().stack)
-            console.log(e)
             reject(e);
         }
     });
