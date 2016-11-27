@@ -108,6 +108,7 @@ Resources:
             InputArtifacts:
               - Name: SourceOutput
               - Name: DeployInfrastructureStackOutput
+              - Name: DeployBackendOutput
             Configuration:
                 FunctionName: !Ref DeployFrontendFunctionName
             RunOrder: 2
