@@ -300,7 +300,7 @@ function zipBackendOutputs(outArtifactZipPath, cloudformationStack) {
 }
 
 
-function uploadBuildToWebsiteBucket(deployInfrastructureStackArtifactZipPath, deployBackendArtifactZipPath, destDirectory) {
+function uploadBuildToWebsiteBucket(deployInfrastructureStackArtifactZipPath, destDirectory) {
     return new Promise(function (resolve, reject) {
         try {
             process.chdir('/tmp');
