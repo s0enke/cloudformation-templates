@@ -3,7 +3,8 @@ Description: Infrastructure for CloudFormation templates, e.g. pipeline and buck
 Parameters:
   TemplateBucketName:
     Type: String
-    Default: ruempler-cloudformation-templates
+  LambdaFunctionBucketName:
+    Type: String
   GithubOauthToken:
     Type: String
   DeploymentStage:
@@ -15,6 +16,7 @@ Resources:
   LambdaFunctionBucket:
     Type: AWS::S3::Bucket
     Properties:
+      BucketName: !Ref LambdaFunctionBucketName
       AccessControl: PublicRead
 
   TemplateBucket:
