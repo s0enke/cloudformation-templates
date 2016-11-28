@@ -89,11 +89,10 @@ function deployFrontendAction(jobDetails) {
     var sourceFrontendPath = artifactExtractPath + 'frontend/'
     var sourceFrontendBuildPath = sourceFrontendPath + 'build/'
 
-    var deployInfrastructureStackArtifactZipPath = '/tmp/DeployInfrastructureStackOutput.zip';
-    var deployInfrastructureStackArtifactName = 'DeployInfrastructureStackOutput';
-
     var deployBackendArtifactName = 'DeployBackendOutput';
     var deployBackendArtifactZipPath = '/tmp/backend_output.zip';
+
+    var destBucket = process.env.WEBSITE_BUCKET;
 
     return downloadInputArtifact(jobDetails, artifactName, artifactZipPath)
         .then(function () {
@@ -105,9 +104,7 @@ function deployFrontendAction(jobDetails) {
         }).then(function () {
             return npmInstallAndBuild(sourceFrontendPath, deployBackendArtifactZipPath);
         }).then(function () {
-            return downloadInputArtifact(jobDetails, deployInfrastructureStackArtifactName, deployInfrastructureStackArtifactZipPath)
-        }).then(function () {
-            return uploadBuildToWebsiteBucket(deployInfrastructureStackArtifactZipPath, sourceFrontendBuildPath);
+            return uploadBuildToWebsiteBucket(destBucket, sourceFrontendBuildPath);
         });
 }
 
@@ -298,12 +295,9 @@ function zipBackendOutputs(outArtifactZipPath, cloudformationStack) {
 }
 
 
-function uploadBuildToWebsiteBucket(deployInfrastructureStackArtifactZipPath, destDirectory) {
+function uploadBuildToWebsiteBucket(destBucket, destDirectory) {
     return new Promise(function (resolve, reject) {
         try {
-            process.chdir('/tmp');
-            childProcess.execSync('unzip -o ' + deployInfrastructureStackArtifactZipPath);
-            config = JSON.parse(fs.readFileSync('/tmp/cfn.json'));
             s3WebsiteBucketClient = new AWS.S3();
 
             process.chdir(destDirectory);
@@ -312,7 +306,7 @@ function uploadBuildToWebsiteBucket(deployInfrastructureStackArtifactZipPath, de
                 contentType = contentTypeMap(file)
                 relativeFilePath = file.replace(destDirectory, '');
                 s3WebsiteBucketClient.putObject({
-                    'Bucket': config['WebsiteBucket'],
+                    'Bucket': destBucket,
                     'Key': relativeFilePath,
                     'Body': fs.createReadStream(file),
                     'ContentType': contentType

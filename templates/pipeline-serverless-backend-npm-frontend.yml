@@ -10,11 +10,6 @@ Parameters:
   GithubRepoBranch:
     Type: String
     Default: master
-  InfrastructureTemplatePath:
-    Type: String
-    Default: infrastructure.yml
-  InfrastructureStackName:
-    Type: String
   DeploymentLambdaFunctionsBucket:
     Type: String
     Description: Bucket where to find the deployment helper functions for the pipeline.
@@ -34,6 +29,29 @@ Metadata:
           - GithubRepoBranch
           - GithubOauthToken
 Resources:
+  WebsiteBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: PublicRead
+      WebsiteConfiguration:
+        IndexDocument: index.html
+  WebsiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: WebsiteBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          Effect: Allow
+          Principal: "*"
+          Action: s3:GetObject
+          Resource:
+            Fn::Join:
+              - ""
+              - - "arn:aws:s3:::"
+                - Ref: WebsiteBucket
+                - "/*"
   ArtifactStoreBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -67,25 +85,6 @@ Resources:
                 Branch: !Ref GithubRepoBranch
                 OAuthToken: !Ref GithubOauthToken
               RunOrder: 1
-        - Name: DeployInfrastructure
-          Actions:
-          - Name: CreateStack
-            ActionTypeId:
-              Category: Deploy
-              Owner: AWS
-              Provider: CloudFormation
-              Version: '1'
-            InputArtifacts:
-              - Name: SourceOutput
-            OutputArtifacts:
-              - Name: DeployInfrastructureStackOutput
-            Configuration:
-              RoleArn: !GetAtt [InfrastructureStackRole, Arn]
-              TemplatePath: !Sub "SourceOutput::${InfrastructureTemplatePath}"
-              ActionMode: CREATE_UPDATE
-              StackName: !Ref InfrastructureStackName
-              OutputFileName: cfn.json
-            RunOrder: 1
         - Name: DeployApp
           Actions:
           - Name: DeployBackend
@@ -109,7 +108,6 @@ Resources:
                 Provider: Lambda
             InputArtifacts:
               - Name: SourceOutput
-              - Name: DeployInfrastructureStackOutput
               - Name: DeployBackendOutput
             Configuration:
                 FunctionName: !Ref DeployFrontendFunction
@@ -127,19 +125,6 @@ Resources:
       Path: /
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AdministratorAccess
-  InfrastructureStackRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          Effect: Allow
-          Principal:
-            Service: cloudformation.amazonaws.com
-          Action: sts:AssumeRole
-      Path: /
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AdministratorAccess
 
   DeployFrontendFunction:
     Type: AWS::Lambda::Function
@@ -153,6 +138,9 @@ Resources:
       Runtime: nodejs4.3
       MemorySize: 1024
       Timeout: 300
+      Environment:
+        Variables:
+          WEBSITE_BUCKET: !Ref WebsiteBucket
 
   DeployBackendFunction:
     Type: AWS::Lambda::Function
