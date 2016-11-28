@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Infrastructure for CloudFormation templates, e.g. pipeline and bucket 
+Description: Serverless deployment pipeline for a serverless backend and a npm/react frontend
 Parameters:
   GithubOauthToken:
     Type: String
