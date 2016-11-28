@@ -298,7 +298,8 @@ Resources:
           function npmInstallAndDeployLambdaZip(destDirectory) {
             return new Promise(function (resolve, reject) {
               try {
-                var lambdaZipPath = '/tmp/lambda.zip';
+                var lambdaZipName = 'lambda.zip';
+                var lambdaZipPath = '/tmp/' + lambdaZipName;
 
                 childProcess.execSync('rm -fr /tmp/npm', {encoding: 'utf-8'});
                 childProcess.execSync('npm install s3-deploy bestzip -g --prefix=/tmp/npm', {encoding: 'utf-8'});
@@ -306,8 +307,10 @@ Resources:
                 process.chdir(destDirectory);
                 childProcess.execSync('npm install --progress=false', {encoding: 'utf-8'});
 
-                console.log(childProcess.execSync('/tmp/npm/bin/bestzip ' + lambdaZipPath + ' ' + destDirectory, {encoding: 'utf-8'}));
-                console.log(childProcess.execSync('/tmp/npm/bin/s3-deploy ' + lambdaZipPath + ' --bucket ' + process.env.CFN_TEMPLATES_DEPLOYMENT_BUCKET, {encoding: 'utf-8'}));
+                console.log(childProcess.execSync('/tmp/npm/bin/bestzip ' + lambdaZipPath + ' .', {encoding: 'utf-8'}));
+
+                process.chdir('/tmp');
+                console.log(childProcess.execSync('/tmp/npm/bin/s3-deploy ' + lambdaZipName + ' --bucket ' + process.env.CFN_TEMPLATES_DEPLOYMENT_BUCKET, {encoding: 'utf-8'}));
 
                 resolve(true);
               } catch (e) {
