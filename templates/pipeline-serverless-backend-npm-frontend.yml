@@ -15,12 +15,14 @@ Parameters:
     Default: infrastructure.yml
   InfrastructureStackName:
     Type: String
-  DeployFrontendFunctionName:
+  DeploymentLambdaFunctionsBucket:
     Type: String
-    Default: cfn-templates-lambda-helpers-prod-deployFrontendAction
-  DeployBackendFunctionName:
+    Description: Bucket where to find the deployment helper functions for the pipeline.
+    Default: ruempler-cloudformation-templates-lambdas-prod
+  DeploymentLambdaFunctionsKey:
     Type: String
-    Default: cfn-templates-lambda-helpers-prod-deployBackendAction
+    Description: S3 Key where to find the deployment helper function zip for the pipeline.
+    Default: lambda.zip
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
@@ -97,7 +99,7 @@ Resources:
             InputArtifacts:
               - Name: SourceOutput
             Configuration:
-                FunctionName: !Ref DeployBackendFunctionName
+                FunctionName: !Ref DeployBackendFunction
             RunOrder: 1
           - Name: DeployFrontend
             ActionTypeId:
@@ -110,7 +112,7 @@ Resources:
               - Name: DeployInfrastructureStackOutput
               - Name: DeployBackendOutput
             Configuration:
-                FunctionName: !Ref DeployFrontendFunctionName
+                FunctionName: !Ref DeployFrontendFunction
             RunOrder: 2
   PipelineRole:
     Type: AWS::IAM::Role
@@ -137,4 +139,56 @@ Resources:
           Action: sts:AssumeRole
       Path: /
       ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+
+  DeployFrontendFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: !Ref DeploymentLambdaFunctionsBucket
+        S3Key: !Ref DeploymentLambdaFunctionsKey
+
+      Handler: handler.deployFrontendAction
+      Role: !GetAtt [DeployFrontendFunctionRole, Arn]
+      Runtime: nodejs4.3
+      Timeout: 300
+
+  DeployBackendFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: !Ref DeploymentLambdaFunctionsBucket
+        S3Key: !Ref DeploymentLambdaFunctionsKey
+
+      Handler: handler.deployBackendAction
+      Role: !GetAtt [DeployBackendFunctionRole, Arn]
+      Runtime: nodejs4.3
+      Timeout: 300
+
+  DeployFrontendFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/AdministratorAccess
+
+  DeployBackendFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
         - arn:aws:iam::aws:policy/AdministratorAccess

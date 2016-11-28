@@ -3,7 +3,8 @@ Description: Infrastructure for CloudFormation templates, e.g. pipeline and buck
 Parameters:
   TemplateBucketName:
     Type: String
-    Default: ruempler-cloudformation-templates
+  LambdaFunctionBucketName:
+    Type: String
   GithubOauthToken:
     Type: String
   DeploymentStage:
@@ -15,6 +16,7 @@ Resources:
   LambdaFunctionBucket:
     Type: AWS::S3::Bucket
     Properties:
+      BucketName: !Ref LambdaFunctionBucketName
       AccessControl: PublicRead
 
   TemplateBucket:
@@ -246,7 +248,7 @@ Resources:
               .then(function () {
                 return extractZip(artifactZipPath, artifactExtractPath);
               }).then(function () {
-                return npmInstallAndServerlessDeploy(artifactExtractPath + 'lambda');
+                return npmInstallAndDeployLambdaZip(artifactExtractPath + 'lambda');
               });
           }
 
@@ -295,15 +297,23 @@ Resources:
             });
           }
 
-          function npmInstallAndServerlessDeploy(destDirectory) {
+          function npmInstallAndDeployLambdaZip(destDirectory) {
             return new Promise(function (resolve, reject) {
               try {
+                var lambdaZipName = 'lambda.zip';
+                var lambdaZipPath = '/tmp/' + lambdaZipName;
+
                 childProcess.execSync('rm -fr /tmp/npm', {encoding: 'utf-8'});
-                childProcess.execSync('npm install serverless@1.2.0 -g --prefix=/tmp/npm', {encoding: 'utf-8'});
+                childProcess.execSync('npm install s3-deploy bestzip -g --prefix=/tmp/npm', {encoding: 'utf-8'});
 
                 process.chdir(destDirectory);
                 childProcess.execSync('npm install --progress=false', {encoding: 'utf-8'});
-                console.log(childProcess.execSync('/tmp/npm/lib/node_modules/serverless/bin/serverless deploy', {encoding: 'utf-8'}));
+
+                console.log(childProcess.execSync('/tmp/npm/bin/bestzip ' + lambdaZipPath + ' .', {encoding: 'utf-8'}));
+
+                process.chdir('/tmp');
+                console.log(childProcess.execSync('/tmp/npm/bin/s3-deploy ' + lambdaZipName + ' --bucket ' + process.env.CFN_TEMPLATES_DEPLOYMENT_BUCKET, {encoding: 'utf-8'}));
+
                 resolve(true);
               } catch (e) {
                 reject(e);
@@ -314,7 +324,6 @@ Resources:
       Environment:
         Variables:
           CFN_TEMPLATES_DEPLOYMENT_BUCKET: !Ref LambdaFunctionBucket
-          CFN_TEMPLATES_DEPLOYMEMT_STAGE: !Ref DeploymentStage
       Role: !GetAtt [DeployLambdasFunctionRole, Arn]
       Runtime: nodejs4.3
       Timeout: 300
