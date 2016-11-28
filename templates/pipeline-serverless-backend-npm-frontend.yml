@@ -151,6 +151,7 @@ Resources:
       Handler: handler.deployFrontendAction
       Role: !GetAtt [DeployFrontendFunctionRole, Arn]
       Runtime: nodejs4.3
+      MemorySize: 1024
       Timeout: 300
 
   DeployBackendFunction:
@@ -163,6 +164,7 @@ Resources:
       Handler: handler.deployBackendAction
       Role: !GetAtt [DeployBackendFunctionRole, Arn]
       Runtime: nodejs4.3
+      MemorySize: 1024
       Timeout: 300
 
   DeployFrontendFunctionRole:
