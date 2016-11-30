@@ -1,5 +1,7 @@
 ## Serverless pipeline
 
+### How the stack is created
+
 ![](http://g.gravizo.com/g?
   @startuml;
   actor User;
@@ -13,6 +15,8 @@
   deactivate CloudFormation;
   @enduml
 )
+
+### How the pipeline works
 
 ![](http://g.gravizo.com/g?
   @startuml;
