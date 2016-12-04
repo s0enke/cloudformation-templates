@@ -23,7 +23,7 @@
   actor GitHub;
   participant "CodePipeline";
   participant "SourceStep";
-  participant "DeployBackendStep";
+  participant "Deploy Backend step" as DeployBackendStep;
   participant "Serverless framework";
   participant "DeployFrontendStep";
   participant "NpmInstall";
