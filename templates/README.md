@@ -1,5 +1,7 @@
 ## Serverless pipeline
 
+### How the stack is created
+
 ![](http://g.gravizo.com/g?
   @startuml;
   actor User;
@@ -14,18 +16,22 @@
   @enduml
 )
 
+### How the pipeline works
+
+#### DeployBackend step
+
 ![](http://g.gravizo.com/g?
   @startuml;
-  actor GitHub;
-  participant "CodePipeline";
-  participant "SourceStep";
-  participant "InfrastructureStep";
-  participant "InfrastructureStack";
-  participant "WebsiteBucket";
-  GitHub -> CodePipeline: triggers run;
-  CodePipeline -> SourceStep: invokes;
-  SourceStep -> CodePipeline: sends back artifact;
-  CodePipeline -> InfrastructureStep: invokes;
-  InfrastructureStep -> InfrastructureStack: creates from infrastructure.yml;
+  actor "CodePipeline";
+  participant "Deploy Backend step" as DeployBackendStep;
+  participant "Serverless framework" as ServerlessFramework;
+  participant "CloudFormation stack" as CloudFormationStack;
+  participant "CloudFormation output" as CloudFormationOutput;
+  CodePipeline -> DeployBackendStep: invokes;
+  DeployBackendStep -> ServerlessFramework: "calls 'serverless deploy'";
+  ServerlessFramework -> CloudFormationStack: creates resources;
+  CloudFormationStack -> CloudFormationOutput: outputs e.g. service endpoint;
+  CloudFormationOutput -> DeployBackendStep: pack as output artifact;
+  DeployBackendStep -> CodePipeline: return sucessful;
   @enduml
 )
