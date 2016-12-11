@@ -57,10 +57,10 @@ Resources:
             ArtifactStoreBucket
         Type: S3
       Stages:
-        - Name: source
+        - Name: Source
           Actions:
             - InputArtifacts: []
-              Name: Source
+              Name: SourceAction
               ActionTypeId:
                 Category: Source
                 Owner: ThirdParty
@@ -93,9 +93,9 @@ Resources:
               StackName: !Ref AWS::StackName
               TemplatePath: 'SourceOutput::infrastructure.yml'
               ParameterOverrides: !Sub '{"TemplateBucketName": "${TemplateBucketName}", "LambdaFunctionBucketName": "${LambdaFunctionBucketName}", "GithubOauthToken": "${GithubOauthToken}", "DeploymentStage": "${DeploymentStage}"}'
-        - Name: validate_and_deploy_templates
+        - Name: ValidateAndDeployTemplates
           Actions:
-            - Name: DeployLambdas
+            - Name: DeployLambdasAction
               InputArtifacts:
                 - Name: SourceOutput
               ActionTypeId:
@@ -110,7 +110,7 @@ Resources:
               RunOrder: 1
             - InputArtifacts:
                 - Name: SourceOutput
-              Name: ValidateAndDeployTemplates
+              Name: ValidateAndDeployTemplatesAction
               ActionTypeId:
                 Category: Build
                 Owner: AWS
