@@ -1,6 +1,5 @@
 version: 0.1
 phases:
-  test:
-    build:
-      commands:
-        - echo juhu
+  build:
+    commands:
+      - echo juhu
