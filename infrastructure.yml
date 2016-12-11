@@ -94,14 +94,15 @@ Resources:
                 - Name: SourceOutput
               Name: ValidateAndDeployTemplates
               ActionTypeId:
-                Category: Invoke
+                Category: Build
                 Owner: AWS
                 Version: 1
-                Provider: Lambda
-              OutputArtifacts: []
+                Provider: CodeBuild
+              OutputArtifacts:
+                - Name: ValidateAndDeployTemplatesOutput
               Configuration:
-                FunctionName:
-                  Ref: ValidateAndDeployFunction
+                ProjectName:
+                  Ref: ValidateAndDeployTemplatesBuild
               RunOrder: 2
   PipelineRole:
     Type: AWS::IAM::Role
@@ -116,53 +117,22 @@ Resources:
       Path: /
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AdministratorAccess
-  ValidateAndDeployFunction:
-    Type: AWS::Lambda::Function
+
+  ValidateAndDeployTemplatesBuild:
+    Type: AWS::CodeBuild::Project
     Properties:
-      Code:
-        ZipFile: |
-          import boto3
-          from boto3.session import Session
-          import botocore
-          import tempfile
-          import zipfile
-          import json
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/eb-python-2.6-amazonlinux-64:2.1.3
+        Type: LINUX_CONTAINER
+      Name: !Sub ValidateAndDeployTemplatesBuild-${DeploymentStage}
+      ServiceRole: !Ref ValidateAndDeployTemplatesBuildRole
+      Source:
+        Type: CODEPIPELINE
 
-          code_pipeline = boto3.client('codepipeline')
-          cf = boto3.client('cloudformation')
-
-          def handler(event, context):
-
-            job = event['CodePipeline.job'];
-            job_data = job['data']
-            job_id = job['id']
-            artifact = job_data['inputArtifacts'][0];
-
-            key_id = job_data['artifactCredentials']['accessKeyId']
-            key_secret = job_data['artifactCredentials']['secretAccessKey']
-            session_token = job_data['artifactCredentials']['sessionToken']
-
-            stack_name = 'react-boilerplate-ci-infrastructure'
-            file_in_zip_yaml = 'ci_build/infrastructure.yml'
-            cfn_yaml_file = '/tmp/infrastructure.yml'
-
-            # download artifact
-            session = Session(aws_access_key_id=key_id,
-            aws_secret_access_key=key_secret,
-            aws_session_token=session_token)
-            s3 = session.client('s3', config=botocore.client.Config(signature_version='s3v4'))
-
-            tmp_file = tempfile.NamedTemporaryFile()
-            bucket = artifact['location']['s3Location']['bucketName']
-            key = artifact['location']['s3Location']['objectKey']
-
-            code_pipeline.put_job_success_result(jobId=job_id)
-      Handler: index.handler
-      Role: !GetAtt ValidateAndDeployFunctionRole.Arn
-      Timeout: 300
-      Runtime: python2.7
-
-  ValidateAndDeployFunctionRole:
+  ValidateAndDeployTemplatesBuildRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -170,7 +140,7 @@ Resources:
         Statement:
           Effect: Allow
           Principal:
-            Service: lambda.amazonaws.com
+            Service: codebuild.amazonaws.com
           Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AdministratorAccess
