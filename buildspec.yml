@@ -4,3 +4,4 @@ phases:
     commands:
       - pwd
       - ls -al
+      - aws s3 sync templates/ s3://$TEMPLATE_DEPLOYMENT_BUCKET/

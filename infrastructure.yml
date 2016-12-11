@@ -127,6 +127,9 @@ Resources:
         ComputeType: BUILD_GENERAL1_SMALL
         Image: aws/codebuild/eb-python-2.6-amazonlinux-64:2.1.3
         Type: LINUX_CONTAINER
+        EnvironmentVariables:
+          - Name: TEMPLATE_DEPLOYMENT_BUCKET
+            Value: !Ref TemplateBucket
       Name: !Sub ValidateAndDeployTemplatesBuild-${DeploymentStage}
       ServiceRole: !Ref ValidateAndDeployTemplatesBuildRole
       Source:
