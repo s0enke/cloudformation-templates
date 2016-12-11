@@ -182,3 +182,8 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
         - arn:aws:iam::aws:policy/AdministratorAccess
+
+Outputs:
+  WebsiteUrl:
+    Description: URL of the Website hosted in S3
+    Value: !GetAtt [WebsiteBucket, WebsiteURL]
