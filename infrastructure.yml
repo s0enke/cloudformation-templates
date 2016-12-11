@@ -89,7 +89,7 @@ Resources:
             Configuration:
               ActionMode: CREATE_UPDATE
               Capabilities: CAPABILITY_IAM
-              RoleArn: !Ref DeploySelfActionRole
+              RoleArn: !GetAtt [DeploySelfActionRole, Arn]
               StackName: !Ref AWS::StackName
               TemplatePath: 'SourceOutput::infrastructure.yml'
               ParameterOverrides: !Sub '{"TemplateBucketName": "${TemplateBucketName}", "LambdaFunctionBucketName": "${LambdaFunctionBucketName}", "GithubOauthToken": "${GithubOauthToken}", "DeploymentStage": "${DeploymentStage}"}'
