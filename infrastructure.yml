@@ -75,6 +75,24 @@ Resources:
                 OAuthToken:
                   Ref: GithubOauthToken
               RunOrder: 1        
+        - Name: DeploySelf
+          Actions:
+          - Name: DeploySelfAction
+            ActionTypeId:
+              Category: Deploy
+              Owner: AWS
+              Provider: CloudFormation
+              Version: 1
+            InputArtifacts:
+              - Name: SourceOutput
+            RunOrder: 1
+            Configuration:
+              ActionMode: CREATE_UPDATE
+              Capabilities: CAPABILITY_IAM
+              RoleArn: !Ref DeploySelfActionRole
+              StackName: !Ref AWS::StackName
+              TemplatePath: 'SourceOutput::infrastructure.yml'
+              ParameterOverrides: !Sub '{"TemplateBucketName": "${TemplateBucketName}", "LambdaFunctionBucketName": "${LambdaFunctionBucketName}", "GithubOauthToken": "${GithubOauthToken}", "DeploymentStage": "${DeploymentStage}"}'
         - Name: validate_and_deploy_templates
           Actions:
             - Name: DeployLambdas
@@ -115,6 +133,19 @@ Resources:
             Service: codepipeline.amazonaws.com
           Action: sts:AssumeRole
       Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+
+  DeploySelfActionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: cloudformation.amazonaws.com
+          Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AdministratorAccess
 
