@@ -121,6 +121,9 @@ Resources:
             build:
               commands:
                 - node_modules/.bin/hexo deploy
+            post_build:
+              commands:
+                - aws s3 sync public/ s3://$WEBSITE_BUCKET/
 
   DeployWebsiteRole:
     Type: AWS::IAM::Role
