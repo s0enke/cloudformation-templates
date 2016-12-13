@@ -10,7 +10,7 @@ Parameters:
   GithubRepoBranch:
     Type: String
     Default: master
-  Domain:
+  DomainName:
     Type: String
   DeploymentStage:
     Type: String
