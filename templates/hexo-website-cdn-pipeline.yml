@@ -112,6 +112,15 @@ Resources:
       ServiceRole: !Ref DeployWebsiteRole
       Source:
         Type: CODEPIPELINE
+        BuildSpec: |
+          version: 0.1
+          phases:
+            install:
+              commands:
+                - npm install
+            build:
+              commands:
+                - node_modules/.bin/hexo deploy
 
   DeployWebsiteRole:
     Type: AWS::IAM::Role
