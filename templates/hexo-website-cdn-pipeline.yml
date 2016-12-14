@@ -32,6 +32,17 @@ Resources:
       AccessControl: PublicRead
       WebsiteConfiguration:
         IndexDocument: index.html
+  WebsiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref WebsiteBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          Effect: Allow
+          Principal: "*"
+          Action: s3:GetObject
+          Resource: !Sub arn:aws:s3:::${WebsiteBucket}/*
   ArtifactStoreBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -137,3 +148,29 @@ Resources:
           Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AdministratorAccess
+
+  WebsiteCdn:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Aliases:
+         - !Ref DomainName
+        PriceClass: PriceClass_100
+        Origins:
+          - DomainName: !Sub ${WebsiteBucket}.s3-website-${AWS::Region}.amazonaws.com
+            Id: Origin
+            CustomOriginConfig:
+              OriginProtocolPolicy: http-only
+        DefaultCacheBehavior:
+          ForwardedValues:
+            QueryString: false
+          TargetOriginId: Origin
+          ViewerProtocolPolicy: allow-all
+#          ViewerProtocolPolicy: redirect-to-https
+        Enabled: true
+#        ViewerCertificate:
+#          AcmCertificateArn: !Ref WebsiteCertificate
+#          SslSupportMethod: sni-only
+#        Logging:
+#          Bucket: !GetAtt WebsiteCdnLogBucket.DomainName
+#          IncludeCookies: true
