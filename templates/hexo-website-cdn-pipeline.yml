@@ -154,6 +154,7 @@ Resources:
     Properties:
       DistributionConfig:
         Aliases:
+         - !Sub www.${DomainName}
          - !Ref DomainName
         PriceClass: PriceClass_100
         Origins:
@@ -167,12 +168,23 @@ Resources:
           ForwardedValues:
             QueryString: false
           TargetOriginId: Origin
-          ViewerProtocolPolicy: allow-all
-#          ViewerProtocolPolicy: redirect-to-https
+          ViewerProtocolPolicy: redirect-to-https
         Enabled: true
-#        ViewerCertificate:
-#          AcmCertificateArn: !Ref WebsiteCertificate
-#          SslSupportMethod: sni-only
+        ViewerCertificate:
+          AcmCertificateArn: !Ref WebsiteCertificate
+          SslSupportMethod: sni-only
 #        Logging:
 #          Bucket: !GetAtt WebsiteCdnLogBucket.DomainName
 #          IncludeCookies: true
+
+  WebsiteCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref DomainName
+      DomainValidationOptions:
+        - DomainName: !Sub www.${DomainName}
+          ValidationDomain: !Ref DomainName
+        - DomainName: !Ref DomainName
+          ValidationDomain: !Ref DomainName
+      SubjectAlternativeNames:
+        - !Sub www.${DomainName}
