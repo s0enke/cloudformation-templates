@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Serverless deployment pipeline for a website powered by Hexo, including a CDN and HTTPS/Cert
+Description: Serverless deployment pipeline for a website powered by Hexo, including a CDN, HTTPS/Cert and Route53 records
 Parameters:
   GithubOauthToken:
     Type: String
@@ -12,6 +12,7 @@ Parameters:
     Default: master
   DomainName:
     Type: String
+    Description: APEX Domain name. Aliases for www.DomainName will be created as well
   DeploymentStage:
     Type: String
     Default: prod
@@ -188,3 +189,20 @@ Resources:
           ValidationDomain: !Ref DomainName
       SubjectAlternativeNames:
         - !Sub www.${DomainName}
+
+  DNS:
+    Type: AWS::Route53::RecordSetGroup
+    Properties:
+      HostedZoneName: !Sub ${DomainName}.
+      RecordSets:
+      - Name: !Ref DomainName
+        Type: A
+        AliasTarget:
+          # Magic AWS number:  For CloudFront, use Z2FDTNDATAQYW2.
+          HostedZoneId: Z2FDTNDATAQYW2
+          DNSName: !GetAtt [WebsiteCdn, DomainName]
+      - Name: !Sub www.${DomainName}
+        Type: CNAME
+        TTL: 900
+        ResourceRecords:
+          - !GetAtt [WebsiteCdn, DomainName]
