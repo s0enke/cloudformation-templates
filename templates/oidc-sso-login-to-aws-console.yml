@@ -1,0 +1,163 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: SSO Login to the AWS Console via a IAM supported OIDC provider, e.g. Google
+Parameters:
+  ApiGatewayName:
+    Type: String
+    Default: OIDCSSOLoginToAWSConsole
+  Stage:
+    Type: String
+    Default: prod
+  OidcClientId:
+    Type: String
+  OidcClientSecret:
+    Type: String
+    NoEcho: true
+  RoleToAssume:
+    Type: String
+Resources:
+  ApiGateway:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Ref ApiGatewayName
+  SSOBrokerFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:invokeFunction
+      FunctionName: !GetAtt [SSOBrokerFunction, Arn]
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*/*/"
+  SSOBrokerFunctionMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: ANY
+      ResourceId: !GetAtt [ApiGateway, RootResourceId]
+      RestApiId: !Ref ApiGateway
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Arn}/invocations
+          - Arn: !GetAtt [SSOBrokerFunction, Arn]
+  ApiStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      DeploymentId: !Ref ApiDeployment
+      RestApiId: !Ref ApiGateway
+      StageName: !Ref Stage
+  ApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - SSOBrokerFunctionMethod
+    Properties:
+      RestApiId: !Ref ApiGateway
+      StageName: DummyStage
+
+  SSOBrokerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Environment:
+        Variables:
+          OIDC_CLIENT_ID: !Ref OidcClientId
+          OIDC_CLIENT_SECRET: !Ref OidcClientSecret
+          OIDC_TOKEN_ENDPOINT: https://www.googleapis.com/oauth2/v4/token # TODO: can probably be looked up by program, only the provider type should be specified
+          LOGIN_HINT: soenke@ruempler.eu # TODO: do we need this?
+          ROLE_TO_ASSUME: !Ref RoleToAssume
+          SESSION_DURATION: 43200
+          ISSUER: "some issuer"
+      Code:
+        ZipFile: |
+          import boto3
+          import urllib2
+          import urllib
+          import json
+          import os
+
+          sts = boto3.client('sts')
+
+          def handler(event, context):
+
+            redirect_uri = 'https://%s/%s' % (event['headers']['Host'], event['requestContext']['stage'])
+
+            # check if redirect coming from OIDC provider
+            if 'queryStringParameters' in event and event['queryStringParameters'] and 'code' in event['queryStringParameters']:
+
+              # get identity token from OIDC provider
+              token_endpoint_request_parameters = {
+                'code': event['queryStringParameters']['code'],
+                'client_id': os.environ['OIDC_CLIENT_ID'],
+                'client_secret': os.environ['OIDC_CLIENT_SECRET'],
+                'redirect_uri': redirect_uri,
+                'grant_type': 'authorization_code',
+              }
+
+              token_endpoint_result = urllib2.urlopen(os.environ['OIDC_TOKEN_ENDPOINT'], urllib.urlencode(token_endpoint_request_parameters)).read()
+              token_endpoint_result_decoded = json.loads(token_endpoint_result)
+
+              # assume role and get temporary AWS credentials from STS using the id_token
+              assume_role_result = sts.assume_role_with_web_identity(
+                RoleArn=os.environ['ROLE_TO_ASSUME'],
+                RoleSessionName="GUISession",
+                WebIdentityToken=token_endpoint_result_decoded['id_token']
+              )
+
+              json_string_with_temp_credentials = json.dumps({
+                'sessionId': assume_role_result['Credentials']['AccessKeyId'],
+                'sessionKey': assume_role_result['Credentials']['SecretAccessKey'],
+                'sessionToken': assume_role_result['Credentials']['SessionToken']
+              })
+
+              get_signin_token_url = 'https://signin.aws.amazon.com/federation?Action=getSigninToken&SessionDuration=%s&Session=%s' % (
+                os.environ['SESSION_DURATION'],
+                urllib.quote_plus(json_string_with_temp_credentials)
+              )
+              get_signin_token_url_result = urllib2.urlopen(get_signin_token_url).read()
+              get_signin_token_url_result_json = json.loads(get_signin_token_url_result)
+
+              signin_url = 'https://signin.aws.amazon.com/federation?Action=login&Issuer=%s&Destination=%s&SigninToken=%s' % (
+                os.environ['ISSUER'],
+                urllib.quote_plus('https://console.aws.amazon.com/'),
+                get_signin_token_url_result_json['SigninToken']
+              )
+
+              return {
+                'statusCode': 302,
+                'headers': {
+                  'location': signin_url
+                }
+              }
+            else:
+              # if not redirect client to OIDC provider
+              return {
+                'statusCode': 302,
+                'headers': {
+                  'location': 'https://accounts.google.com/o/oauth2/v2/auth?client_id=%s&response_type=code&scope=openid%%20email&redirect_uri=%s&login_hint=%s' % (
+                    os.environ['OIDC_CLIENT_ID'],
+                    redirect_uri,
+                    os.environ['LOGIN_HINT'],
+                  )
+                }
+              }
+
+
+
+
+
+      Handler: index.handler
+      Role: !GetAtt [SSOBrokerFunctionRole, Arn]
+      Runtime: python2.7
+      MemorySize: 128
+      Timeout: 10
+
+  SSOBrokerFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
