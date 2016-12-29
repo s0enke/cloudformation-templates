@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: SSO Login to the AWS Console via a IAM supported OIDC provider, e.g. Google
+Description: SSO Login to the AWS Console via an OIDC provider, e.g. Google
 Parameters:
   ApiGatewayName:
     Type: String
