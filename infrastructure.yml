@@ -3,9 +3,6 @@ Description: Infrastructure for CloudFormation templates, e.g. pipeline and buck
 Parameters:
   TemplateBucketName:
     Type: String
-  LambdaFunctionBucketName:
-    Type: String
-    Default: obsolete
   GithubOauthToken:
     Type: String
   DeploymentStage:
