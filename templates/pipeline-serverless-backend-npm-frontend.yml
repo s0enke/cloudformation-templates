@@ -107,7 +107,7 @@ Resources:
                 Version: 1
                 Provider: CodeBuild
             InputArtifacts:
-              - Name: SourceOutput
+              - Name: DeployBackendOutput
             OutputArtifacts:
               - Name: DeployFrontendOutput
             Configuration:
@@ -180,9 +180,6 @@ Resources:
             build:
               commands:
                 - cd backend && serverless deploy
-            post_build:
-              commands:
-                - ls -al
           artifacts:
             files:
               - frontend/**/*
