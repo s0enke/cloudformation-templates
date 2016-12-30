@@ -10,14 +10,6 @@ Parameters:
   GithubRepoBranch:
     Type: String
     Default: master
-  DeploymentLambdaFunctionsBucket:
-    Type: String
-    Description: Bucket where to find the deployment helper functions for the pipeline.
-    Default: ruempler-cloudformation-templates-lambdas-prod
-  DeploymentLambdaFunctionsKey:
-    Type: String
-    Description: S3 Key where to find the deployment helper function zip for the pipeline.
-    Default: lambda.zip
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
