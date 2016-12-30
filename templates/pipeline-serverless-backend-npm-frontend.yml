@@ -89,16 +89,16 @@ Resources:
           Actions:
           - Name: DeployBackend
             ActionTypeId:
-                Category: Invoke
+                Category: Build
                 Owner: AWS
                 Version: 1
-                Provider: Lambda
+                Provider: CodeBuild
             OutputArtifacts:
               - Name: DeployBackendOutput
             InputArtifacts:
               - Name: SourceOutput
             Configuration:
-                FunctionName: !Ref DeployBackendFunction
+                ProjectName: !Ref DeployBackendBuild
             RunOrder: 1
           - Name: DeployFrontend
             ActionTypeId:
@@ -157,18 +157,35 @@ Resources:
                 - cd frontend && aws s3 sync build/ s3://$WEBSITE_BUCKET/
 
 
-  DeployBackendFunction:
-    Type: AWS::Lambda::Function
+  DeployBackendBuild:
+    Type: AWS::CodeBuild::Project
     Properties:
-      Code:
-        S3Bucket: !Ref DeploymentLambdaFunctionsBucket
-        S3Key: !Ref DeploymentLambdaFunctionsKey
-
-      Handler: handler.deployBackendAction
-      Role: !GetAtt [DeployBackendFunctionRole, Arn]
-      Runtime: nodejs4.3
-      MemorySize: 1024
-      Timeout: 300
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/eb-nodejs-4.4.6-amazonlinux-64:2.1.3
+        Type: LINUX_CONTAINER
+      Name: !Sub ${AWS::StackName}DeployBackendBuild
+      ServiceRole: !Ref DeployBackendBuildRole
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: |
+          version: 0.1
+          phases:
+            install:
+              commands:
+                - npm install -g serverless@1.2.0
+                - cd backend && npm install
+            build:
+              commands:
+                - cd backend && serverless deploy
+            post_build:
+              commands:
+                - ls -al
+          artifacts:
+            files:
+              - frontend/**/*
 
   DeployFrontendBuildRole:
     Type: AWS::IAM::Role
@@ -183,7 +200,7 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AdministratorAccess
 
-  DeployBackendFunctionRole:
+  DeployBackendBuildRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -191,10 +208,9 @@ Resources:
         Statement:
           Effect: Allow
           Principal:
-            Service: lambda.amazonaws.com
+            Service: codebuild.amazonaws.com
           Action: sts:AssumeRole
       ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
         - arn:aws:iam::aws:policy/AdministratorAccess
 
 Outputs:
