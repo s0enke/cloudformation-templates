@@ -102,15 +102,16 @@ Resources:
             RunOrder: 1
           - Name: DeployFrontend
             ActionTypeId:
-                Category: Invoke
+                Category: Build
                 Owner: AWS
                 Version: 1
-                Provider: Lambda
+                Provider: CodeBuild
             InputArtifacts:
               - Name: SourceOutput
-              - Name: DeployBackendOutput
+            OutputArtifacts:
+              - Name: DeployFrontendOutput
             Configuration:
-                FunctionName: !Ref DeployFrontendFunction
+                ProjectName: !Ref DeployFrontendBuild
             RunOrder: 2
   PipelineRole:
     Type: AWS::IAM::Role
@@ -126,21 +127,35 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AdministratorAccess
 
-  DeployFrontendFunction:
-    Type: AWS::Lambda::Function
+  DeployFrontendBuild:
+    Type: AWS::CodeBuild::Project
     Properties:
-      Code:
-        S3Bucket: !Ref DeploymentLambdaFunctionsBucket
-        S3Key: !Ref DeploymentLambdaFunctionsKey
-
-      Handler: handler.deployFrontendAction
-      Role: !GetAtt [DeployFrontendFunctionRole, Arn]
-      Runtime: nodejs4.3
-      MemorySize: 1024
-      Timeout: 300
+      Artifacts:
+        Type: CODEPIPELINE
       Environment:
-        Variables:
-          WEBSITE_BUCKET: !Ref WebsiteBucket
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/eb-nodejs-4.4.6-amazonlinux-64:2.1.3
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+          - Name: WEBSITE_BUCKET
+            Value: !Ref WebsiteBucket
+      Name: !Sub ${AWS::StackName}DeployWebsiteBuild
+      ServiceRole: !Ref DeployFrontendBuildRole
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: |
+          version: 0.1
+          phases:
+            install:
+              commands:
+                - cd frontend && npm install
+            build:
+              commands:
+                - cd frontend && npm run build
+            post_build:
+              commands:
+                - cd frontend && aws s3 sync build/ s3://$WEBSITE_BUCKET/
+
 
   DeployBackendFunction:
     Type: AWS::Lambda::Function
@@ -155,7 +170,7 @@ Resources:
       MemorySize: 1024
       Timeout: 300
 
-  DeployFrontendFunctionRole:
+  DeployFrontendBuildRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -163,10 +178,9 @@ Resources:
         Statement:
           Effect: Allow
           Principal:
-            Service: lambda.amazonaws.com
+            Service: codebuild.amazonaws.com
           Action: sts:AssumeRole
       ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
         - arn:aws:iam::aws:policy/AdministratorAccess
 
   DeployBackendFunctionRole:
