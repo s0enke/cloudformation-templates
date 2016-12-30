@@ -151,7 +151,7 @@ Resources:
                 - cd frontend && npm install
             build:
               commands:
-                - cd frontend && npm run build
+                - cd frontend && REACT_APP_API_ENDPOINT=$(cat ../service_endpoint.txt) npm run build
             post_build:
               commands:
                 - cd frontend && aws s3 sync build/ s3://$WEBSITE_BUCKET/
@@ -180,9 +180,11 @@ Resources:
             build:
               commands:
                 - cd backend && serverless deploy
+                - aws cloudformation describe-stacks --stack-name serverless-boilerplate-dev --query 'Stacks[0].Outputs[?OutputKey==`ServiceEndpoint`].OutputValue' --output text > service_endpoint.txt
           artifacts:
             files:
               - frontend/**/*
+              - service_endpoint.txt
 
   DeployFrontendBuildRole:
     Type: AWS::IAM::Role
