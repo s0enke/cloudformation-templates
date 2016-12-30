@@ -139,7 +139,7 @@ Resources:
         EnvironmentVariables:
           - Name: WEBSITE_BUCKET
             Value: !Ref WebsiteBucket
-      Name: !Sub ${AWS::StackName}DeployWebsiteBuild
+      Name: !Sub ${AWS::StackName}DeployFrontendBuild
       ServiceRole: !Ref DeployFrontendBuildRole
       Source:
         Type: CODEPIPELINE
