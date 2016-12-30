@@ -89,28 +89,29 @@ Resources:
           Actions:
           - Name: DeployBackend
             ActionTypeId:
-                Category: Invoke
+                Category: Build
                 Owner: AWS
                 Version: 1
-                Provider: Lambda
+                Provider: CodeBuild
             OutputArtifacts:
               - Name: DeployBackendOutput
             InputArtifacts:
               - Name: SourceOutput
             Configuration:
-                FunctionName: !Ref DeployBackendFunction
+                ProjectName: !Ref DeployBackendBuild
             RunOrder: 1
           - Name: DeployFrontend
             ActionTypeId:
-                Category: Invoke
+                Category: Build
                 Owner: AWS
                 Version: 1
-                Provider: Lambda
+                Provider: CodeBuild
             InputArtifacts:
-              - Name: SourceOutput
               - Name: DeployBackendOutput
+            OutputArtifacts:
+              - Name: DeployFrontendOutput
             Configuration:
-                FunctionName: !Ref DeployFrontendFunction
+                ProjectName: !Ref DeployFrontendBuild
             RunOrder: 2
   PipelineRole:
     Type: AWS::IAM::Role
@@ -126,36 +127,66 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AdministratorAccess
 
-  DeployFrontendFunction:
-    Type: AWS::Lambda::Function
+  DeployFrontendBuild:
+    Type: AWS::CodeBuild::Project
     Properties:
-      Code:
-        S3Bucket: !Ref DeploymentLambdaFunctionsBucket
-        S3Key: !Ref DeploymentLambdaFunctionsKey
-
-      Handler: handler.deployFrontendAction
-      Role: !GetAtt [DeployFrontendFunctionRole, Arn]
-      Runtime: nodejs4.3
-      MemorySize: 1024
-      Timeout: 300
+      Artifacts:
+        Type: CODEPIPELINE
       Environment:
-        Variables:
-          WEBSITE_BUCKET: !Ref WebsiteBucket
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/eb-nodejs-4.4.6-amazonlinux-64:2.1.3
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+          - Name: WEBSITE_BUCKET
+            Value: !Ref WebsiteBucket
+      Name: !Sub ${AWS::StackName}DeployFrontendBuild
+      ServiceRole: !Ref DeployFrontendBuildRole
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: |
+          version: 0.1
+          phases:
+            install:
+              commands:
+                - cd frontend && npm install
+            build:
+              commands:
+                - cd frontend && REACT_APP_API_ENDPOINT=$(cat ../service_endpoint.txt) npm run build
+            post_build:
+              commands:
+                - cd frontend && aws s3 sync build/ s3://$WEBSITE_BUCKET/
 
-  DeployBackendFunction:
-    Type: AWS::Lambda::Function
+
+  DeployBackendBuild:
+    Type: AWS::CodeBuild::Project
     Properties:
-      Code:
-        S3Bucket: !Ref DeploymentLambdaFunctionsBucket
-        S3Key: !Ref DeploymentLambdaFunctionsKey
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/eb-nodejs-4.4.6-amazonlinux-64:2.1.3
+        Type: LINUX_CONTAINER
+      Name: !Sub ${AWS::StackName}DeployBackendBuild
+      ServiceRole: !Ref DeployBackendBuildRole
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: |
+          version: 0.1
+          phases:
+            install:
+              commands:
+                - npm install -g serverless@1.2.0
+                - cd backend && npm install
+            build:
+              commands:
+                - cd backend && serverless deploy
+                - aws cloudformation describe-stacks --stack-name serverless-boilerplate-dev --query 'Stacks[0].Outputs[?OutputKey==`ServiceEndpoint`].OutputValue' --output text > service_endpoint.txt
+          artifacts:
+            files:
+              - frontend/**/*
+              - service_endpoint.txt
 
-      Handler: handler.deployBackendAction
-      Role: !GetAtt [DeployBackendFunctionRole, Arn]
-      Runtime: nodejs4.3
-      MemorySize: 1024
-      Timeout: 300
-
-  DeployFrontendFunctionRole:
+  DeployFrontendBuildRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -163,13 +194,12 @@ Resources:
         Statement:
           Effect: Allow
           Principal:
-            Service: lambda.amazonaws.com
+            Service: codebuild.amazonaws.com
           Action: sts:AssumeRole
       ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
         - arn:aws:iam::aws:policy/AdministratorAccess
 
-  DeployBackendFunctionRole:
+  DeployBackendBuildRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -177,10 +207,9 @@ Resources:
         Statement:
           Effect: Allow
           Principal:
-            Service: lambda.amazonaws.com
+            Service: codebuild.amazonaws.com
           Action: sts:AssumeRole
       ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
         - arn:aws:iam::aws:policy/AdministratorAccess
 
 Outputs:

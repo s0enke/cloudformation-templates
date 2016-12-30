@@ -3,8 +3,6 @@ Description: Infrastructure for CloudFormation templates, e.g. pipeline and buck
 Parameters:
   TemplateBucketName:
     Type: String
-  LambdaFunctionBucketName:
-    Type: String
   GithubOauthToken:
     Type: String
   DeploymentStage:
@@ -12,12 +10,6 @@ Parameters:
     Default: prod
 
 Resources:
-
-  LambdaFunctionBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: !Ref LambdaFunctionBucketName
-      AccessControl: PublicRead
 
   TemplateBucket:
     Type: AWS::S3::Bucket
@@ -92,22 +84,9 @@ Resources:
               RoleArn: !GetAtt [DeploySelfActionRole, Arn]
               StackName: !Ref AWS::StackName
               TemplatePath: 'SourceOutput::infrastructure.yml'
-              ParameterOverrides: !Sub '{"TemplateBucketName": "${TemplateBucketName}", "LambdaFunctionBucketName": "${LambdaFunctionBucketName}", "GithubOauthToken": "${GithubOauthToken}", "DeploymentStage": "${DeploymentStage}"}'
+              ParameterOverrides: !Sub '{"TemplateBucketName": "${TemplateBucketName}", "GithubOauthToken": "${GithubOauthToken}", "DeploymentStage": "${DeploymentStage}"}'
         - Name: ValidateAndDeployTemplates
           Actions:
-            - Name: DeployLambdasAction
-              InputArtifacts:
-                - Name: SourceOutput
-              ActionTypeId:
-                Category: Invoke
-                Owner: AWS
-                Version: 1
-                Provider: Lambda
-              OutputArtifacts: []
-              Configuration:
-                FunctionName:
-                  Ref: DeployLambdasFunction
-              RunOrder: 1
             - InputArtifacts:
                 - Name: SourceOutput
               Name: ValidateAndDeployTemplatesAction
@@ -175,173 +154,6 @@ Resources:
           Effect: Allow
           Principal:
             Service: codebuild.amazonaws.com
-          Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AdministratorAccess
-
-  DeployLambdasFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      Code:
-        ZipFile: |
-          var childProcess = require('child_process');
-          var fs = require('fs');
-          var AWS = require('aws-sdk');
-          var codepipeline = new AWS.CodePipeline();
-          var s3;
-
-          process.env.HOME = '/tmp';
-          exports.handler = function(event, context) {
-
-            var job = event['CodePipeline.job'];
-            s3 = new AWS.S3({
-              "signatureVersion":"v4",
-              "accessKeyId": job.data.artifactCredentials.accessKeyId,
-              "secretAccessKey": job.data.artifactCredentials.secretAccessKey,
-              "sessionToken": job.data.artifactCredentials.sessionToken
-            });
-
-
-            doAction(npmAction, event, context);
-          }
-
-          function doAction(actionFunction, event, context) {
-            var promise;
-            try {
-                promise = actionFunction(event["CodePipeline.job"])
-            } catch (e) {
-                promise = Promise.reject(e);
-            }
-
-            promise
-              .then(function() {
-                var params = {
-                  jobId: event["CodePipeline.job"].id
-                };
-                codepipeline.putJobSuccessResult(params, function(err, data) {
-                  if(err) {
-                    context.fail(err);
-                  } else {
-                    context.succeed("Action complete.");
-                  }
-                });
-              }).catch( function(message) {
-                var m = JSON.stringify(message);
-                console.error("Failure: "+m);
-
-                var params = {
-                  jobId: event["CodePipeline.job"].id,
-                  failureDetails: {
-                    message: m,
-                    type: 'JobFailed',
-                    externalExecutionId: context.invokeid
-                  }
-                };
-
-                codepipeline.putJobFailureResult(params, function(err, data) {
-                    context.fail(m);
-                });
-            });
-          }
-
-          function npmAction(jobDetails) {
-            var artifactName = 'SourceOutput';
-            var artifactZipPath = '/tmp/source.zip';
-            var artifactExtractPath = '/tmp/source/';
-            return downloadInputArtifact(jobDetails, artifactName, artifactZipPath)
-              .then(function () {
-                return extractZip(artifactZipPath, artifactExtractPath);
-              }).then(function () {
-                return npmInstallAndDeployLambdaZip(artifactExtractPath + 'lambda');
-              });
-          }
-
-          function downloadInputArtifact(jobDetails, artifactName, dest) {
-            var artifact = null;
-            jobDetails.data.inputArtifacts.forEach(function (a) {
-              if (a.name == artifactName) {
-                  artifact = a;
-              }
-            });
-
-            if (artifact != null && artifact.location.type == 'S3') {
-              var params = {
-                Bucket: artifact.location.s3Location.bucketName,
-                Key: artifact.location.s3Location.objectKey
-              };
-              return getS3Object(params, dest);
-            } else {
-              return Promise.reject("Unknown Source Type:" + JSON.stringify(sourceOutput));
-            }
-          }
-
-          function getS3Object(params, dest) {
-            return new Promise(function(resolve,reject) {
-              var file = fs.createWriteStream(dest);
-              s3.getObject(params)
-                .createReadStream()
-                .on('error', reject)
-                .pipe(file)
-                .on('close', resolve);
-            });
-          }
-
-          function extractZip(sourceZip,destDirectory) {
-            return new Promise(function (resolve, reject) {
-              console.log("Extracting zip: '"+sourceZip+"' to '"+destDirectory+"'");
-              try {
-                childProcess.execSync('rm -fr ' + destDirectory, {encoding: 'utf-8'});
-                fs.mkdirSync(destDirectory);
-                process.chdir(destDirectory);
-                childProcess.execSync('unzip -o ' + sourceZip, {encoding: 'utf-8'});
-                resolve(true);
-              } catch (e) {
-                reject(e);
-              }
-            });
-          }
-
-          function npmInstallAndDeployLambdaZip(destDirectory) {
-            return new Promise(function (resolve, reject) {
-              try {
-                var lambdaZipName = 'lambda.zip';
-                var lambdaZipPath = '/tmp/' + lambdaZipName;
-
-                childProcess.execSync('rm -fr /tmp/npm', {encoding: 'utf-8'});
-                childProcess.execSync('npm install s3-deploy bestzip -g --prefix=/tmp/npm', {encoding: 'utf-8'});
-
-                process.chdir(destDirectory);
-                childProcess.execSync('npm install --progress=false', {encoding: 'utf-8'});
-
-                console.log(childProcess.execSync('/tmp/npm/bin/bestzip ' + lambdaZipPath + ' .', {encoding: 'utf-8'}));
-
-                process.chdir('/tmp');
-                console.log(childProcess.execSync('/tmp/npm/bin/s3-deploy ' + lambdaZipName + ' --bucket ' + process.env.CFN_TEMPLATES_DEPLOYMENT_BUCKET, {encoding: 'utf-8'}));
-
-                resolve(true);
-              } catch (e) {
-                reject(e);
-              }
-            });
-          }
-      Handler: index.handler
-      Environment:
-        Variables:
-          CFN_TEMPLATES_DEPLOYMENT_BUCKET: !Ref LambdaFunctionBucket
-      Role: !GetAtt [DeployLambdasFunctionRole, Arn]
-      Runtime: nodejs4.3
-      Timeout: 300
-      MemorySize: 1024
-
-  DeployLambdasFunctionRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          Effect: Allow
-          Principal:
-            Service: lambda.amazonaws.com
           Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AdministratorAccess
