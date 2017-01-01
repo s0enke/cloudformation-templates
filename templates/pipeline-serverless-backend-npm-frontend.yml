@@ -167,12 +167,12 @@ Resources:
           phases:
             install:
               commands:
-                - npm install -g serverless@1.2.0
+                - npm install -g serverless
                 - cd backend && npm install
             build:
               commands:
-                - cd backend && serverless deploy
-                - aws cloudformation describe-stacks --stack-name serverless-boilerplate-dev --query 'Stacks[0].Outputs[?OutputKey==`ServiceEndpoint`].OutputValue' --output text > service_endpoint.txt
+                - "cd backend && serverless deploy"
+                - "cd backend && aws cloudformation describe-stacks --stack-name $(serverless info | grep service: | cut -d' ' -f2)-$(serverless info | grep stage: | cut -d' ' -f2) --query 'Stacks[0].Outputs[?OutputKey==`ServiceEndpoint`].OutputValue' --output text > ../service_endpoint.txt"
           artifacts:
             files:
               - frontend/**/*
