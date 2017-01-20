@@ -39,10 +39,7 @@ Resources:
   Pipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
-      RoleArn:
-        Fn::GetAtt:
-          - PipelineRole
-          - Arn
+      RoleArn: !GetAtt PipelineRole.Arn
       ArtifactStore:
         Location:
           Ref:
@@ -81,7 +78,7 @@ Resources:
             Configuration:
               ActionMode: CREATE_UPDATE
               Capabilities: CAPABILITY_IAM
-              RoleArn: !GetAtt [DeploySelfActionRole, Arn]
+              RoleArn: !GetAtt DeploySelfActionRole.Arn
               StackName: !Ref AWS::StackName
               TemplatePath: 'SourceOutput::infrastructure.yml'
               ParameterOverrides: !Sub '{"TemplateBucketName": "${TemplateBucketName}", "GithubOauthToken": "${GithubOauthToken}", "DeploymentStage": "${DeploymentStage}"}'

@@ -53,7 +53,7 @@ Resources:
   Pipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
-      RoleArn: !GetAtt [PipelineRole, Arn]
+      RoleArn: !GetAtt PipelineRole.Arn
       ArtifactStore:
         Location:
           Ref:
@@ -207,4 +207,4 @@ Resources:
 Outputs:
   WebsiteUrl:
     Description: URL of the Website hosted in S3
-    Value: !GetAtt [WebsiteBucket, WebsiteURL]
+    Value: !GetAtt WebsiteBucket.WebsiteURL
