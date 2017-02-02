@@ -167,7 +167,7 @@ Resources:
           phases:
             install:
               commands:
-                - npm install -g serverless
+                - npm install -g serverless@1.5.0
                 - cd backend && npm install
             build:
               commands:
