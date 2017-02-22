@@ -10,6 +10,9 @@ Parameters:
   GithubRepoBranch:
     Type: String
     Default: master
+  TerraformVersion:
+    Type: String
+    Default: 0.8.7
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
@@ -21,6 +24,12 @@ Metadata:
           - GithubRepoBranch
           - GithubOauthToken
 Resources:
+  TerraformStateBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      VersioningConfiguration:
+        Status: Enabled
+      AccessControl: BucketOwnerFullControl #FIXME: only allow codebuild role to access it!
   ArtifactStoreBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -90,18 +99,24 @@ Resources:
         Type: CODEPIPELINE
       Environment:
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: hashicorp/terraform:light
+        Image: aws/codebuild/eb-go-1.5-amazonlinux-64:2.1.3
         Type: LINUX_CONTAINER
       Name: !Sub ${AWS::StackName}-InvokeTerraformBuild
       ServiceRole: !Ref InvokeTerraformBuildRole
       Source:
         Type: CODEPIPELINE
-        BuildSpec: |
+        BuildSpec: !Sub |
           version: 0.1
           phases:
+            install:
+              commands:
+                - yum -y install jq
+                - cd /tmp && curl -o terraform.zip https://releases.hashicorp.com/terraform/${TerraformVersion}/terraform_${TerraformVersion}_linux_amd64.zip && unzip terraform.zip && mv terraform /usr/bin
             build:
               commands:
-                - "terraform help"
+                - curl 169.254.170.2$AWS_CONTAINER_CREDENTIALS_RELATIVE_URI | jq 'to_entries | [ .[] | select(.key | (contains("Expiration") or contains("RoleArn"))  | not) ] |  map(if .key == "AccessKeyId" then . + {"key":"AWS_ACCESS_KEY_ID"} else . end) | map(if .key == "SecretAccessKey" then . + {"key":"AWS_SECRET_ACCESS_KEY"} else . end) | map(if .key == "Token" then . + {"key":"AWS_SESSION_TOKEN"} else . end) | map("export \(.key)=\(.value)") | .[]' -r > /tmp/aws_cred_export.txt # work around https://github.com/hashicorp/terraform/issues/8746
+                - source /tmp/aws_cred_export.txt && terraform remote config -backend=s3 -backend-config="bucket=${TerraformStateBucket}" -backend-config="key=terraform.tfstate"
+                - source /tmp/aws_cred_export.txt && terraform apply
 
   InvokeTerraformBuildRole:
     Type: AWS::IAM::Role
