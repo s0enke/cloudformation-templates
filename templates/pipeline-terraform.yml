@@ -13,6 +13,10 @@ Parameters:
   TerraformVersion:
     Type: String
     Default: 0.8.7
+  TerraformSha256:
+    Type: String
+    Default: 7ca424d8d0e06697cc7f492b162223aef525bfbcd69248134a0ce0b529285c8c
+    Description: HASHICORP - Y U NO REPOSITORY
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
@@ -111,7 +115,7 @@ Resources:
             install:
               commands:
                 - yum -y install jq
-                - cd /tmp && curl -o terraform.zip https://releases.hashicorp.com/terraform/${TerraformVersion}/terraform_${TerraformVersion}_linux_amd64.zip && unzip terraform.zip && mv terraform /usr/bin
+                - cd /tmp && curl -o terraform.zip https://releases.hashicorp.com/terraform/${TerraformVersion}/terraform_${TerraformVersion}_linux_amd64.zip && echo "${TerraformSha256} terraform.zip" | sha256sum -c --quiet && unzip terraform.zip && mv terraform /usr/bin
             build:
               commands:
                 - curl 169.254.170.2$AWS_CONTAINER_CREDENTIALS_RELATIVE_URI | jq 'to_entries | [ .[] | select(.key | (contains("Expiration") or contains("RoleArn"))  | not) ] |  map(if .key == "AccessKeyId" then . + {"key":"AWS_ACCESS_KEY_ID"} else . end) | map(if .key == "SecretAccessKey" then . + {"key":"AWS_SECRET_ACCESS_KEY"} else . end) | map(if .key == "Token" then . + {"key":"AWS_SESSION_TOKEN"} else . end) | map("export \(.key)=\(.value)") | .[]' -r > /tmp/aws_cred_export.txt # work around https://github.com/hashicorp/terraform/issues/8746
