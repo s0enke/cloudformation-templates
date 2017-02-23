@@ -33,7 +33,6 @@ Resources:
     Properties:
       VersioningConfiguration:
         Status: Enabled
-      AccessControl: BucketOwnerFullControl #FIXME: only allow codebuild role to access it!
   ArtifactStoreBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -133,4 +132,4 @@ Resources:
             Service: codebuild.amazonaws.com
           Action: sts:AssumeRole
       ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AdministratorAccess
+        - arn:aws:iam::aws:policy/PowerUserAccess
