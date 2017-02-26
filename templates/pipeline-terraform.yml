@@ -3,20 +3,25 @@ Description: Serverless deployment pipeline for Terraform projects
 Parameters:
   GithubOauthToken:
     Type: String
+    Description: see http://docs.aws.amazon.com/codepipeline/latest/userguide/integrations-action-type.html for instructions
   GithubRepoOwner:
     Type: String
+    Description: The Github owner of the repository
   GithubRepoName:
     Type: String
+    Description: The GitHub repository where the Terraform files (to be executed) are located
   GithubRepoBranch:
     Type: String
     Default: master
+    Description: The Git branch to be used
   TerraformVersion:
     Type: String
     Default: 0.8.7
+    Description: The Terraform version to use
   TerraformSha256:
     Type: String
     Default: 7ca424d8d0e06697cc7f492b162223aef525bfbcd69248134a0ce0b529285c8c
-    Description: HASHICORP - Y U NO REPOSITORY
+    Description: HASHICORP - Y U NO PACKAGE REPOSITORY
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
@@ -27,6 +32,11 @@ Metadata:
           - GithubRepoName
           - GithubRepoBranch
           - GithubOauthToken
+      - Label:
+          default: Terraform
+        Parameters:
+          - TerraformVersion
+          - TerraformSha256
 Resources:
   TerraformStateBucket:
     Type: AWS::S3::Bucket
