@@ -135,7 +135,7 @@ Resources:
                 - node_modules/.bin/hexo deploy
             post_build:
               commands:
-                - aws s3 sync public/ s3://$WEBSITE_BUCKET/
+                - aws s3 sync public/ s3://$WEBSITE_BUCKET/ --delete
 
   DeployWebsiteRole:
     Type: AWS::IAM::Role
