@@ -10,9 +10,10 @@ Parameters:
   GithubRepoBranch:
     Type: String
     Default: master
-  DomainName:
+  ApexDomainName:
     Type: String
-    Description: APEX Domain name. Aliases for www.DomainName will be created as well
+  RedirectDomainName:
+    Type: String
   DeploymentStage:
     Type: String
     Default: prod
@@ -155,8 +156,8 @@ Resources:
     Properties:
       DistributionConfig:
         Aliases:
-         - !Sub www.${DomainName}
-         - !Ref DomainName
+         - !Ref RedirectDomainName
+         - !Ref ApexDomainName
         PriceClass: PriceClass_100
         Origins:
           - DomainName: !Sub ${WebsiteBucket}.s3-website-${AWS::Region}.amazonaws.com
@@ -182,28 +183,29 @@ Resources:
   WebsiteCertificate:
     Type: AWS::CertificateManager::Certificate
     Properties:
-      DomainName: !Ref DomainName
+      DomainName: !Ref ApexDomainName
       DomainValidationOptions:
-        - DomainName: !Sub www.${DomainName}
-          ValidationDomain: !Ref DomainName
-        - DomainName: !Ref DomainName
-          ValidationDomain: !Ref DomainName
+        - DomainName: !Ref RedirectDomainName
+          ValidationDomain: !Ref ApexDomainName
+        - DomainName: !Ref ApexDomainName
+          ValidationDomain: !Ref ApexDomainName
       SubjectAlternativeNames:
-        - !Sub www.${DomainName}
+        - !Ref RedirectDomainName
 
   DNS:
     Type: AWS::Route53::RecordSetGroup
     Properties:
-      HostedZoneName: !Sub ${DomainName}.
+      HostedZoneName: !Sub ${ApexDomainName}.
       RecordSets:
-      - Name: !Ref DomainName
+      - Name: !Ref ApexDomainName
         Type: A
         AliasTarget:
           # Magic AWS number:  For CloudFront, use Z2FDTNDATAQYW2.
           HostedZoneId: Z2FDTNDATAQYW2
           DNSName: !GetAtt WebsiteCdn.DomainName
-      - Name: !Sub www.${DomainName}
-        Type: CNAME
-        TTL: 900
-        ResourceRecords:
-          - !GetAtt WebsiteCdn.DomainName
+      - Name: !Ref RedirectDomainName
+        Type: A
+        AliasTarget:
+          # Magic AWS number:  For CloudFront, use Z2FDTNDATAQYW2.
+          HostedZoneId: Z2FDTNDATAQYW2
+          DNSName: !GetAtt WebsiteCdn.DomainName
