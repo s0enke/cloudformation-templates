@@ -15,6 +15,9 @@ Parameters:
   RedirectDomainName:
     Type: String
     Description: All hits on this domain will be redirected to ApexDomainName (usually needed to redirect www. to the APEX domain)
+  ErrorDocument:
+    Type: String
+    Description: Path to a custom error document in S3
   DeploymentStage:
     Type: String
     Default: prod
@@ -28,6 +31,8 @@ Metadata:
           - GithubRepoName
           - GithubRepoBranch
           - GithubOauthToken
+Conditions:
+  HasErrorDocument: !Not [!Equals [!Ref ErrorDocument, '']]
 Resources:
   WebsiteBucket:
     Type: AWS::S3::Bucket
@@ -35,6 +40,7 @@ Resources:
       AccessControl: PublicRead
       WebsiteConfiguration:
         IndexDocument: index.html
+        ErrorDocument: !If [HasErrorDocument, !Ref ErrorDocument, !Ref 'AWS::NoValue']
   WebsiteBucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
