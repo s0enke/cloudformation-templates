@@ -1,0 +1,45 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+  Stage:
+    Type: String
+    Default: prod
+
+Resources:
+  ApiGatewayRestApi:
+    Type: "AWS::ApiGateway::RestApi"
+    Properties:
+      BinaryMediaTypes:
+      - "*/*"
+      Name: !Sub "${AWS::StackName}}-serverless-protected-website-hosting"
+  ApiGatewayStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      DeploymentId: !Ref ApiGatewayDeployment
+      RestApiId: !Ref ApiGatewayRestApi
+      StageName: !Ref Stage
+  ApiGatewayDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn: ApiGatewayProxyMethod
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+      StageName: DummyStage
+
+  ApiGatewayProxyMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: GET
+      ResourceId: !GetAtt ApiGatewayRestApi.RootResourceId
+      RestApiId: !Ref ApiGatewayRestApi
+      Integration:
+        Type: HTTP_PROXY
+        Uri: https://ruempler.eu/
+        IntegrationHttpMethod: GET
+
+
+
+Outputs:
+  URL:
+    Value: !Sub "https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}/"
