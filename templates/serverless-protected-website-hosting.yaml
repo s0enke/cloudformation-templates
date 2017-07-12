@@ -12,7 +12,7 @@ Resources:
     Properties:
       BinaryMediaTypes:
       - "*/*"
-      Name: !Sub "${AWS::StackName}}-serverless-protected-website-hosting"
+      Name: !Sub "${AWS::StackName}-serverless-protected-website-hosting"
   ApiGatewayStage:
     Type: AWS::ApiGateway::Stage
     Properties:
@@ -21,12 +21,12 @@ Resources:
       StageName: !Ref Stage
   ApiGatewayDeployment:
     Type: AWS::ApiGateway::Deployment
-    DependsOn: ApiGatewayProxyMethod
+    DependsOn: ApiGatewayProxyMethodRoot
     Properties:
       RestApiId: !Ref ApiGatewayRestApi
       StageName: DummyStage
 
-  ApiGatewayProxyMethod:
+  ApiGatewayProxyMethodRoot:
     Type: AWS::ApiGateway::Method
     Properties:
       AuthorizationType: NONE
@@ -38,8 +38,30 @@ Resources:
         Uri: https://ruempler.eu/
         IntegrationHttpMethod: GET
 
+  ApiGatewayProxyResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt ApiGatewayRestApi.RootResourceId
+      PathPart: "{proxy+}"
+      RestApiId: !Ref ApiGatewayRestApi
+
+  ApiGatewayProxyMethodCatchall:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: GET
+      ResourceId: !Ref ApiGatewayProxyResource
+      RestApiId: !Ref ApiGatewayRestApi
+      RequestParameters:
+        method.request.path.proxy: true
+      Integration:
+        Type: HTTP_PROXY
+        Uri: "https://ruempler.eu/{proxy}/" # https://forums.aws.amazon.com/message.jspa?messageID=749625
+        IntegrationHttpMethod: GET
+        RequestParameters:
+          integration.request.path.proxy: "method.request.path.proxy"
 
 
 Outputs:
-  URL:
+  ApiGatewayURL:
     Value: !Sub "https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}/"
