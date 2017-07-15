@@ -19,7 +19,7 @@ Resources:
       DeploymentId: !Ref ApiGatewayDeployment
       RestApiId: !Ref ApiGatewayRestApi
       StageName: !Ref Stage
-  ApiGatewayDeployment2:
+  ApiGatewayDeployment3:
     Type: AWS::ApiGateway::Deployment
     DependsOn: ApiGatewayProxyMethodRoot
     Properties:
@@ -113,7 +113,21 @@ Resources:
         ZipFile: |
           import boto3
           def handler(event, context, callback):
-            pass
+            cb(null, generatePolicy('user', 'Deny', event[methodArn])
+
+          def generatePolicy(principalId, effect, resource):
+            return {
+              'principalId': principalId,
+              'policyDocument': {
+                'Version': '2012-10-17',
+                'Statement': [{
+                  'Action': 'execute-api:Invoke',
+                  'Effect': effect,
+                  'Resource': resource
+                }]
+              }
+            }
+          }
 
 
       Handler: index.handler
