@@ -19,17 +19,18 @@ Resources:
       DeploymentId: !Ref ApiGatewayDeployment
       RestApiId: !Ref ApiGatewayRestApi
       StageName: !Ref Stage
-  ApiGatewayDeployment:
+  ApiGatewayDeployment2:
     Type: AWS::ApiGateway::Deployment
     DependsOn: ApiGatewayProxyMethodRoot
     Properties:
       RestApiId: !Ref ApiGatewayRestApi
-      StageName: DummyStage
+      StageName: !Ref Stage
 
   ApiGatewayProxyMethodRoot:
     Type: AWS::ApiGateway::Method
     Properties:
-      AuthorizationType: NONE
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref ApiGatewayAuthorizer
       HttpMethod: GET
       ResourceId: !GetAtt ApiGatewayRestApi.RootResourceId
       RestApiId: !Ref ApiGatewayRestApi
@@ -48,7 +49,8 @@ Resources:
   ApiGatewayProxyMethodCatchall:
     Type: AWS::ApiGateway::Method
     Properties:
-      AuthorizationType: NONE
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref ApiGatewayAuthorizer
       HttpMethod: GET
       ResourceId: !Ref ApiGatewayProxyResource
       RestApiId: !Ref ApiGatewayRestApi
@@ -60,6 +62,65 @@ Resources:
         IntegrationHttpMethod: GET
         RequestParameters:
           integration.request.path.proxy: "method.request.path.proxy"
+
+  ApiGatewayAuthorizer:
+    Type: AWS::ApiGateway::Authorizer
+    Properties:
+      AuthorizerCredentials: !GetAtt ApiGatewayAuthorizerRole.Arn
+      AuthorizerResultTtlInSeconds: "300"
+      AuthorizerUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiGatewayAuthorizerFunction.Arn}/invocations"
+      Type: "TOKEN"
+      IdentitySource: "method.request.header.Auth"
+      Name: "DefaultAuthorizer"
+      RestApiId: !Ref ApiGatewayRestApi
+
+  ApiGatewayAuthorizerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: apigateway.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+      - PolicyName: lambda
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action: lambda:invokeFunction
+            Resource: !GetAtt ApiGatewayAuthorizerFunctionRole.Arn
+
+  ApiGatewayAuthorizerFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  ApiGatewayAuthorizerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        ZipFile: |
+          import boto3
+          def handler(event, context, callback):
+            pass
+
+
+      Handler: index.handler
+      MemorySize: 128
+      Role: !GetAtt ApiGatewayAuthorizerFunctionRole.Arn
+      Runtime: python3.6
+      Timeout: 5
 
 
 Outputs:
