@@ -16,7 +16,7 @@ Resources:
   ApiGatewayStage:
     Type: AWS::ApiGateway::Stage
     Properties:
-      DeploymentId: !Ref ApiGatewayDeployment
+      DeploymentId: !Ref ApiGatewayDeployment3
       RestApiId: !Ref ApiGatewayRestApi
       StageName: !Ref Stage
   ApiGatewayDeployment3:
@@ -90,8 +90,8 @@ Resources:
           Version: '2012-10-17'
           Statement:
           - Effect: Allow
-            Action: lambda:invokeFunction
-            Resource: !GetAtt ApiGatewayAuthorizerFunctionRole.Arn
+            Action: lambda:InvokeFunction
+            Resource: !GetAtt ApiGatewayAuthorizerFunction.Arn
 
   ApiGatewayAuthorizerFunctionRole:
     Type: AWS::IAM::Role
@@ -112,8 +112,10 @@ Resources:
       Code:
         ZipFile: |
           import boto3
-          def handler(event, context, callback):
-            cb(null, generatePolicy('user', 'Deny', event[methodArn])
+
+          def handler(event, context):
+            print event
+            return generatePolicy('user', 'Deny', event['methodArn'])
 
           def generatePolicy(principalId, effect, resource):
             return {
@@ -127,7 +129,7 @@ Resources:
                 }]
               }
             }
-          }
+
 
 
       Handler: index.handler
