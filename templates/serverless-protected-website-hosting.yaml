@@ -16,10 +16,10 @@ Resources:
   ApiGatewayStage:
     Type: AWS::ApiGateway::Stage
     Properties:
-      DeploymentId: !Ref ApiGatewayDeployment3
+      DeploymentId: !Ref ApiGatewayDeployment4
       RestApiId: !Ref ApiGatewayRestApi
       StageName: !Ref Stage
-  ApiGatewayDeployment3:
+  ApiGatewayDeployment4:
     Type: AWS::ApiGateway::Deployment
     DependsOn: ApiGatewayProxyMethodRoot
     Properties:
@@ -70,7 +70,7 @@ Resources:
       AuthorizerResultTtlInSeconds: "300"
       AuthorizerUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiGatewayAuthorizerFunction.Arn}/invocations"
       Type: "TOKEN"
-      IdentitySource: "method.request.header.Auth"
+      IdentitySource: "method.request.header.Authorization"
       Name: "DefaultAuthorizer"
       RestApiId: !Ref ApiGatewayRestApi
 
@@ -114,8 +114,12 @@ Resources:
           import boto3
 
           def handler(event, context):
-            print event
-            return generatePolicy('user', 'Deny', event['methodArn'])
+            basic_auth_decoded = base64.standard_b64decode(event['authorizationToken'].split(' ')[1]).decode()
+            username, password = basic_auth_decoded.split(':')
+            if username == 'sfd' and password == 'zsfg':
+              return generatePolicy('user', 'Allow', event['methodArn'])
+            else:
+              return generatePolicy('user', 'Deny', event['methodArn'])
 
           def generatePolicy(principalId, effect, resource):
             return {
