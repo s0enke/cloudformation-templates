@@ -51,6 +51,26 @@ data "archive_file" "viewer_response" {
   }
 }
 
+resource "aws_lambda_function" "viewer_request" {
+  function_name = "${var.app_name}-viewer-request"
+  filename = "${data.archive_file.viewer_request.output_path}"
+  source_code_hash = "${data.archive_file.viewer_request.output_base64sha256}"
+  role = "${aws_iam_role.main.arn}"
+  runtime = "nodejs6.10"
+  handler = "index.handler"
+  memory_size = 128
+  timeout = 1
+  publish = true
+}
+data "archive_file" "viewer_request" {
+  type = "zip"
+  output_path = "${path.module}/.zip/viewer_request.zip"
+  source {
+    filename = "index.js"
+    content = "${file("${path.module}/functions/viewer_request.js")}"
+  }
+}
+
 data "aws_iam_policy_document" "lambda" {
   statement {
     actions = ["sts:AssumeRole"]
@@ -136,6 +156,10 @@ resource "aws_cloudfront_distribution" "main" {
     lambda_function_association {
       event_type = "viewer-response"
       lambda_arn = "${aws_lambda_function.viewer_response.qualified_arn}"
+    }
+    lambda_function_association {
+      event_type = "viewer-request"
+      lambda_arn = "${aws_lambda_function.viewer_request.qualified_arn}"
     }
     forwarded_values {
       query_string = false
