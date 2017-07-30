@@ -11,46 +11,6 @@ provider "aws" {
   profile = "${var.profile}"
 }
 
-data "archive_file" "rewrite_workaround_for_s3_origin" {
-  type = "zip"
-  output_path = "${path.module}/.zip/rewrite.zip"
-  source {
-    filename = "index.js"
-    content = "${file("${path.module}/functions/rewrite.js")}"
-  }
-}
-resource "aws_lambda_function" "rewrite_workaround_for_s3_origin" {
-  function_name = "${var.app_name}-rewrite"
-  filename = "${data.archive_file.rewrite_workaround_for_s3_origin.output_path}"
-  source_code_hash = "${data.archive_file.rewrite_workaround_for_s3_origin.output_base64sha256}"
-  role = "${aws_iam_role.main.arn}"
-  runtime = "nodejs6.10"
-  handler = "index.handler"
-  memory_size = 128
-  timeout = 1
-  publish = true
-}
-
-resource "aws_lambda_function" "viewer_response" {
-  function_name = "${var.app_name}-viewer-response"
-  filename = "${data.archive_file.viewer_response.output_path}"
-  source_code_hash = "${data.archive_file.viewer_response.output_base64sha256}"
-  role = "${aws_iam_role.main.arn}"
-  runtime = "nodejs6.10"
-  handler = "index.handler"
-  memory_size = 128
-  timeout = 1
-  publish = true
-}
-data "archive_file" "viewer_response" {
-  type = "zip"
-  output_path = "${path.module}/.zip/viewer_response.zip"
-  source {
-    filename = "index.js"
-    content = "${file("${path.module}/functions/viewer_response.js")}"
-  }
-}
-
 resource "aws_lambda_function" "viewer_request" {
   function_name = "${var.app_name}-viewer-request"
   filename = "${data.archive_file.viewer_request.output_path}"
@@ -149,14 +109,6 @@ resource "aws_cloudfront_distribution" "main" {
     default_ttl = 3600
     max_ttl = 86400
     compress = true
-    lambda_function_association {
-      event_type = "origin-request"
-      lambda_arn = "${aws_lambda_function.rewrite_workaround_for_s3_origin.qualified_arn}"
-    }
-    lambda_function_association {
-      event_type = "viewer-response"
-      lambda_arn = "${aws_lambda_function.viewer_response.qualified_arn}"
-    }
     lambda_function_association {
       event_type = "viewer-request"
       lambda_arn = "${aws_lambda_function.viewer_request.qualified_arn}"
