@@ -1,0 +1,1 @@
+- [ ] Add missing trailing slash to pathes
