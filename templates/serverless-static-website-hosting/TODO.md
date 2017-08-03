@@ -1,2 +1,3 @@
 - [ ] Add missing trailing slash to pathes
+- [ ] make index document configurable?
 - [ ] Cache behavior defaults. Should stuff be cached? Who decides?
