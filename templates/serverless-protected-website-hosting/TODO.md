@@ -1,2 +1,0 @@
-- [ ] Add missing trailing slash to pathes
-- [ ] Cache behavior defaults. Should stuff be cached? Who decides?
