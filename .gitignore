@@ -1,1 +1,6 @@
 node_modules
+
+# terraform
+.zip
+.terraform
+terraform.tfstate*
