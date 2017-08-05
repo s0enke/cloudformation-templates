@@ -11,6 +11,7 @@ Resources:
           import time
           import json
           import cfnresponse
+          import subprocess
 
           def handler(event, context):
               print("Received event: " + json.dumps(event, indent=2))
