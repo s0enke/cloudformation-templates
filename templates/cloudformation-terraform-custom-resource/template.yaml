@@ -16,6 +16,10 @@ Resources:
           def handler(event, context):
               print("Received event: " + json.dumps(event, indent=2))
 
+              subprocess.check_output('curl https://releases.hashicorp.com/terraform/0.10.0/terraform_0.10.0_linux_amd64.zip > /tmp/terraform.zip', shell=True)
+              subprocess.check_output('unzip -d /tmp /tmp/terraform.zip', shell=True)
+              print(subprocess.check_output('/tmp/terraform version', shell=True))
+
               if event['RequestType'] == 'Delete':
                   cfnresponse.send(event=event, context=context, responseStatus=cfnresponse.SUCCESS, responseData={})
                   return
