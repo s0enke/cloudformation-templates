@@ -129,3 +129,11 @@ resource "aws_cloudfront_distribution" "main" {
     }
   }
 }
+
+output "storage_bucket_name" {
+  value = "${aws_s3_bucket.main.bucket}"
+}
+
+output "cdn_domain_name" {
+  value = "${aws_cloudfront_distribution.main.domain_name}"
+}

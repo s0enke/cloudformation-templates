@@ -1,0 +1,2 @@
+- [ ] Pipeline
+- [ ] Wait for CDN in tests
