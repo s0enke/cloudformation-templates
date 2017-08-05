@@ -10,3 +10,4 @@ Feature: Serverless Static Website Hosting
     Examples:
     | uploaded file | requested path | response code |
     | index.html    | /index.html    | 200           |
+    | index.html    | /              | 200           |
