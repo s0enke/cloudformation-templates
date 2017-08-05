@@ -1,4 +1,3 @@
-import random
 import subprocess
 import os
 import requests
