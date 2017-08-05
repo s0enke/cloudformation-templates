@@ -1,0 +1,86 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+
+Resources:
+  TerraFormExecuteFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        ZipFile: |
+          import boto3
+          import time
+          import json
+          import cfnresponse
+          import subprocess
+          import os
+
+          def handler(event, context):
+              print("Received event: " + json.dumps(event, indent=2))
+
+              # TODO: sha check
+              subprocess.check_output('curl https://releases.hashicorp.com/terraform/0.10.0/terraform_0.10.0_linux_amd64.zip > /tmp/terraform.zip', shell=True)
+              subprocess.check_output('unzip -o -d /tmp /tmp/terraform.zip', shell=True)
+              #print(subprocess.check_output('/tmp/terraform version', shell=True))
+
+              if event['RequestType'] == 'Delete':
+                  cfnresponse.send(event=event, context=context, responseStatus=cfnresponse.SUCCESS, responseData={})
+                  return
+
+              # write terraform file
+              os.makedirs('/tmp/terraform_files/', exist_ok=True)
+              open('/tmp/terraform_files/terraform.tf', 'w').write(event['ResourceProperties']['Terraform'])
+
+              # chdir for terraform to find its files
+              os.chdir('/tmp/terraform_files')
+              try:
+                subprocess.check_output('/tmp/terraform init', shell=True)
+                print(subprocess.check_output('/tmp/terraform plan', stderr=subprocess.STDOUT, shell=True))
+              except subprocess.CalledProcessError as exc:
+                print("Status : FAILED", exc.returncode, exc.output)
+                # TODO: add response data
+                cfnresponse.send(event=event, context=context, responseStatus=cfnresponse.FAILED, responseData={})
+                return
+
+              cfnresponse.send(event=event, context=context, responseStatus=cfnresponse.SUCCESS, responseData={})
+
+      Handler: index.handler
+      Runtime: python3.6
+      Timeout: 300
+      Role: !GetAtt TerraFormExecuteFunctionRole.Arn
+
+  TerraFormExecuteFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  TerraformExecutionPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: AllowCloudFrontAccess
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+            - 'cloudfront:'
+            Resource: "*"
+      Roles:
+      - !Ref TerraFormExecuteFunctionRole
+
+  TerraFormCustomResource:
+    DependsOn: TerraFormExecuteFunction
+    Type: Custom::TerraFormExecute
+    Properties:
+      ServiceToken: !GetAtt TerraFormExecuteFunction.Arn
+      Terraform: !Sub |
+        resource "aws_cloudfront_origin_access_identity" "origin_access_identity" {
+          comment = "I am a resource managed by Terraform!"
+        }
