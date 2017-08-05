@@ -1,2 +1,3 @@
-- [ ] Pipeline
+- [ ] Pipeline with CodePipeline/CodeBuild (with notifying if code build breaks)
+- [ ] Regular pipeline execution to find e.g. external dependency breaks
 - [ ] Wait for CDN in tests
