@@ -8,6 +8,9 @@ Feature: Serverless Static Website Hosting
     And the response content should be the same
 
     Examples:
-    | uploaded file | requested path |
-    | index.html    | /index.html    |
-    | index.html    | /              |
+    | uploaded file       | requested path    |
+    | index.html          | /index.html       |
+    | index.html          | /                 |
+    | first/index.html    | /first/index.html |
+    | first/index.html    | /first/           |
+    | first/index.html    | /first            |
