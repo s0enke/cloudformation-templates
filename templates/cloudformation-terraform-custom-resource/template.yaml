@@ -17,6 +17,8 @@ Resources:
           def handler(event, context):
               print("Received event: " + json.dumps(event, indent=2))
 
+              terraform_working_directory = '/tmp/terraform_files'
+
               # TODO: sha check
               subprocess.check_output('curl https://releases.hashicorp.com/terraform/0.10.0/terraform_0.10.0_linux_amd64.zip > /tmp/terraform.zip', shell=True)
               subprocess.check_output('unzip -o -d /tmp /tmp/terraform.zip', shell=True)
@@ -27,11 +29,11 @@ Resources:
                   return
 
               # write terraform file
-              os.makedirs('/tmp/terraform_files/', exist_ok=True)
-              open('/tmp/terraform_files/terraform.tf', 'w').write(event['ResourceProperties']['Terraform'])
+              os.makedirs(terraform_working_directory, exist_ok=True)
+              open(os.path.join(terraform_working_directory, 'terraform.tf'), 'w').write(event['ResourceProperties']['Terraform'])
 
               # chdir for terraform to find its files
-              os.chdir('/tmp/terraform_files')
+              os.chdir(terraform_working_directory)
               try:
                 subprocess.check_output('/tmp/terraform init', shell=True)
                 print(subprocess.check_output('/tmp/terraform plan', stderr=subprocess.STDOUT, shell=True))
