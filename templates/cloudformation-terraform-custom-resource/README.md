@@ -3,6 +3,7 @@
  - CloudFormation is nice because it manages state and has an API
  - Terraform is nice because it supports more resources
  - Why not combine both in order to have the highest feature richness combined with lowest TCO
+ - I don't want to reimplement functionality that is already in Terraform or CloudFormation - so I just wrote a couple of lines of glue code.
 
 (TODO: checkout my own TF article for more arguments )
 
