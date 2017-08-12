@@ -25,7 +25,7 @@ Resources:
               #print(subprocess.check_output('/tmp/terraform version', shell=True))
 
               if event['RequestType'] == 'Delete':
-                  cfnresponse.send(event=event, context=context, responseStatus=cfnresponse.SUCCESS, responseData={})
+                  cfnresponse.send(event=event, context=context, responseStatus=cfnresponse.SUCCESS, responseData={}, physicalResourceId=event['LogicalResourceId'])
                   return
 
               # write terraform file
@@ -38,10 +38,10 @@ Resources:
               except subprocess.CalledProcessError as exc:
                 print("Status : FAILED", exc.returncode, exc.output)
                 # TODO: add response data
-                cfnresponse.send(event=event, context=context, responseStatus=cfnresponse.FAILED, responseData={})
+                cfnresponse.send(event=event, context=context, responseStatus=cfnresponse.FAILED, responseData={}, physicalResourceId=event['LogicalResourceId'])
                 return
 
-              cfnresponse.send(event=event, context=context, responseStatus=cfnresponse.SUCCESS, responseData={})
+              cfnresponse.send(event=event, context=context, responseStatus=cfnresponse.SUCCESS, responseData={}, physicalResourceId=event['LogicalResourceId'])
 
       Handler: index.handler
       Runtime: python3.6
