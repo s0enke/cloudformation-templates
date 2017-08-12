@@ -32,11 +32,9 @@ Resources:
               os.makedirs(terraform_working_directory, exist_ok=True)
               open(os.path.join(terraform_working_directory, 'terraform.tf'), 'w').write(event['ResourceProperties']['Terraform'])
 
-              # chdir for terraform to find its files
-              os.chdir(terraform_working_directory)
               try:
-                subprocess.check_output('/tmp/terraform init', shell=True)
-                print(subprocess.check_output('/tmp/terraform plan', stderr=subprocess.STDOUT, shell=True))
+                subprocess.check_output('/tmp/terraform init', shell=True, cwd=terraform_working_directory)
+                print(subprocess.check_output('/tmp/terraform plan', stderr=subprocess.STDOUT, shell=True, cwd=terraform_working_directory))
               except subprocess.CalledProcessError as exc:
                 print("Status : FAILED", exc.returncode, exc.output)
                 # TODO: add response data
