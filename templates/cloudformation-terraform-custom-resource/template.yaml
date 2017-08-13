@@ -35,18 +35,27 @@ Resources:
               try:
                 subprocess.check_output('/tmp/terraform init', shell=True, cwd=terraform_working_directory)
                 print(subprocess.check_output('/tmp/terraform plan', stderr=subprocess.STDOUT, shell=True, cwd=terraform_working_directory))
+                print(subprocess.check_output('/tmp/terraform apply', stderr=subprocess.STDOUT, shell=True, cwd=terraform_working_directory))
+
+                cfnresponse.send(event=event, context=context, responseStatus=cfnresponse.SUCCESS, responseData={}, physicalResourceId=event['LogicalResourceId'])
+
               except subprocess.CalledProcessError as exc:
                 print("Status : FAILED", exc.returncode, exc.output)
                 # TODO: add response data
                 cfnresponse.send(event=event, context=context, responseStatus=cfnresponse.FAILED, responseData={}, physicalResourceId=event['LogicalResourceId'])
                 return
 
-              cfnresponse.send(event=event, context=context, responseStatus=cfnresponse.SUCCESS, responseData={}, physicalResourceId=event['LogicalResourceId'])
 
       Handler: index.handler
       Runtime: python3.6
       Timeout: 300
       Role: !GetAtt TerraFormExecuteFunctionRole.Arn
+
+  TerraFormStateStorage:
+    Type: AWS::S3::Bucket
+    Properties:
+      VersioningConfiguration:
+        Status: Enabled
 
   TerraFormExecuteFunctionRole:
     Type: AWS::IAM::Role
@@ -60,7 +69,19 @@ Resources:
           Action: sts:AssumeRole
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-
+      Policies:
+      - PolicyName: AllowWriteAndReadTerraformStateStorage
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - s3:Put*
+            - s3:Get*
+            - s3:List*
+            Resource:
+            - !GetAtt TerraFormStateStorage.Arn
+            - !Sub '${TerraFormStateStorage.Arn}/*'
   TerraformExecutionPolicy:
     Type: AWS::IAM::Policy
     Properties:
@@ -70,8 +91,8 @@ Resources:
         Statement:
           - Effect: Allow
             Action:
-            - 'cloudfront:'
-            Resource: "*"
+            - cloudfront:*
+            Resource: '*'
       Roles:
       - !Ref TerraFormExecuteFunctionRole
 
@@ -81,6 +102,14 @@ Resources:
     Properties:
       ServiceToken: !GetAtt TerraFormExecuteFunction.Arn
       Terraform: !Sub |
+        terraform {
+          backend "s3" {
+            bucket = "${TerraFormStateStorage}"
+            key    = "terraform.tfstate"
+            region = "${AWS::Region}"
+          }
+        }
+
         resource "aws_cloudfront_origin_access_identity" "origin_access_identity" {
           comment = "I am a resource managed by Terraform!"
         }
