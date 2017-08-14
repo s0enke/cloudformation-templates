@@ -37,7 +37,10 @@ Resources:
                 print(subprocess.check_output('/tmp/terraform plan', stderr=subprocess.STDOUT, shell=True, cwd=terraform_working_directory))
                 print(subprocess.check_output('/tmp/terraform apply', stderr=subprocess.STDOUT, shell=True, cwd=terraform_working_directory))
 
-                cfnresponse.send(event=event, context=context, responseStatus=cfnresponse.SUCCESS, responseData={}, physicalResourceId=event['LogicalResourceId'])
+                terraform_outputs = json.loads(subprocess.check_output('/tmp/terraform output -json', stderr=subprocess.STDOUT, shell=True, cwd=terraform_working_directory))
+                response_data = {key: value['value'] for key, value in terraform_outputs.items()}
+
+                cfnresponse.send(event=event, context=context, responseStatus=cfnresponse.SUCCESS, responseData=response_data, physicalResourceId=event['LogicalResourceId'])
 
               except subprocess.CalledProcessError as exc:
                 print("Status : FAILED", exc.returncode, exc.output)
@@ -113,3 +116,16 @@ Resources:
         resource "aws_cloudfront_origin_access_identity" "origin_access_identity" {
           comment = "I am a resource managed by Terraform!"
         }
+
+        output "cloudfront_oia_arn" {
+          value = "${!aws_cloudfront_origin_access_identity.origin_access_identity.iam_arn}"
+        }
+
+        output "cloudfront_oia_path" {
+          value = "${!aws_cloudfront_origin_access_identity.origin_access_identity.cloudfront_access_identity_path}"
+        }
+
+Outputs:
+  Test:
+    Description: test
+    Value: !GetAtt TerraFormCustomResource.cloudfront_oia_path

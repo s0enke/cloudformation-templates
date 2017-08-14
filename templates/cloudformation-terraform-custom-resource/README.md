@@ -9,8 +9,23 @@
 
 ## Terraform outputs
 
-TBD
+Terraform outputs are passed 1:1 to CloudFormation so you can use it with the `Fn::GetAtt` method, e.g.
 
+```yaml
+  TerraFormCustomResource:
+    DependsOn: TerraFormExecuteFunction
+    Type: Custom::TerraFormExecute
+    Properties:
+      Terraform: |
+        ... 
+        output "SomeOutput" {
+          value = "some_value"
+        }
+```
+could be accessed with
+```yaml
+!GetAtt TerraFormCustomResource.SomeOutput
+```
 ## Known issues
 
  - [`AWS::Include`](http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/create-reusable-transform-function-snippets-and-add-to-your-template-with-aws-include-transform.html) might be used to include the Terraform Lambda function snippet in order to avoid copy and paste
