@@ -124,6 +124,41 @@ Resources:
           value = "${!aws_cloudfront_origin_access_identity.origin_access_identity.cloudfront_access_identity_path}"
         }
 
+  ContentCdn:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Origins:
+        - DomainName: !GetAtt ContentBucket.DomainName
+          Id: S3Origin
+          S3OriginConfig:
+            OriginAccessIdentity: !GetAtt TerraFormCustomResource.cloudfront_oia_path
+        DefaultCacheBehavior:
+          ForwardedValues:
+            QueryString: false
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+        Enabled: true
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+
+  ContentBucket:
+    Type: AWS::S3::Bucket
+
+  ContentBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ContentBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          Effect: Allow
+          Principal:
+            AWS: !GetAtt TerraFormCustomResource.cloudfront_oia_arn
+          Action: s3:GetObject
+          Resource:
+          - !Sub '${ContentBucket.Arn}/*'
+
 Outputs:
   Test:
     Description: test
