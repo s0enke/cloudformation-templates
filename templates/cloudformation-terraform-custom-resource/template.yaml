@@ -95,6 +95,12 @@ Resources:
             Action:
             - cloudfront:*
             Resource: '*'
+          - Effect: Allow
+            Action: lambda:*
+            Resource: '*'
+          - Effect: Allow
+            Action: iam:CreateServiceLinkedRole
+            Resource: '*'
       Roles:
       - !Ref TerraFormExecuteFunctionRole
 
@@ -163,10 +169,10 @@ Resources:
             default_ttl = 3600
             max_ttl = 86400
             compress = true
-            #lambda_function_association {
-            #  event_type = "viewer-request"
-            #  lambda_arn = "${!aws_lambda_function.viewer_request.qualified_arn}"
-            #}
+            lambda_function_association {
+              event_type = "viewer-request"
+              lambda_arn = "${CdnViewerRequestFunctionVersion}"
+            }
             forwarded_values {
               query_string = false
               cookies {
@@ -226,6 +232,7 @@ Resources:
   CdnViewerRequestFunction:
     Type: AWS::Lambda::Function
     Properties:
+      FunctionName: !Sub '${AWS::StackName}-CdnViewerRequest'
       Code:
         ZipFile: |
           'use strict';
@@ -286,6 +293,11 @@ Resources:
           Action: sts:AssumeRole
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  CdnViewerRequestFunctionVersion:
+    Type: "AWS::Lambda::Version"
+    Properties:
+      FunctionName: !Ref CdnViewerRequestFunction
 
 Outputs:
   Test:
