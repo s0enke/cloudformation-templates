@@ -124,6 +124,70 @@ Resources:
           value = "${!aws_cloudfront_origin_access_identity.origin_access_identity.cloudfront_access_identity_path}"
         }
 
+  ContentCdnWithTerraform:
+    DependsOn: TerraFormExecuteFunction
+    Type: Custom::TerraFormExecute
+    Properties:
+      ServiceToken: !GetAtt TerraFormExecuteFunction.Arn
+      Terraform: !Sub |
+        terraform {
+          backend "s3" {
+            bucket = "${TerraFormStateStorage}"
+            key    = "terraform.tfstate"
+            region = "${AWS::Region}"
+          }
+        }
+
+        resource "aws_cloudfront_origin_access_identity" "origin_access_identity" {
+          comment = "I am a resource managed by Terraform!"
+        }
+
+        resource "aws_cloudfront_distribution" "main" {
+          enabled = true
+          http_version = "http2"
+          price_class = "PriceClass_100"
+          is_ipv6_enabled = true
+          origin {
+            origin_id = "s3-origin"
+            domain_name = "${ContentBucket.DomainName}"
+            s3_origin_config {
+              origin_access_identity = "${!aws_cloudfront_origin_access_identity.origin_access_identity.cloudfront_access_identity_path}"
+            }
+          }
+          default_cache_behavior {
+            target_origin_id = "s3-origin"
+            allowed_methods = ["GET", "HEAD"]
+            cached_methods = ["GET", "HEAD"]
+            viewer_protocol_policy = "redirect-to-https"
+            min_ttl = 0
+            default_ttl = 3600
+            max_ttl = 86400
+            compress = true
+            #lambda_function_association {
+            #  event_type = "viewer-request"
+            #  lambda_arn = "${!aws_lambda_function.viewer_request.qualified_arn}"
+            #}
+            forwarded_values {
+              query_string = false
+              cookies {
+                forward = "none"
+              }
+            }
+          }
+          viewer_certificate {
+            cloudfront_default_certificate = true
+          }
+          restrictions {
+            geo_restriction {
+              restriction_type = "none"
+            }
+          }
+        }
+
+        output "cloudfront_oia_arn" {
+          value = "${!aws_cloudfront_origin_access_identity.origin_access_identity.iam_arn}"
+        }
+
   ContentCdn:
     Type: AWS::CloudFront::Distribution
     Properties:
