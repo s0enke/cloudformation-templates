@@ -194,6 +194,10 @@ Resources:
           value = "${!aws_cloudfront_origin_access_identity.origin_access_identity.iam_arn}"
         }
 
+        output "cloudfront_domain_name" {
+          value = "${!aws_cloudfront_distribution.main.domain_name}"
+        }
+
   ContentCdn:
     Type: AWS::CloudFront::Distribution
     Properties:
@@ -300,6 +304,6 @@ Resources:
       FunctionName: !Ref CdnViewerRequestFunction
 
 Outputs:
-  Test:
-    Description: test
-    Value: !GetAtt TerraFormCustomResource.cloudfront_oia_path
+  CdnDomain:
+    Description: CdnDomain
+    Value: !GetAtt ContentCdnWithTerraform.cloudfront_domain_name
