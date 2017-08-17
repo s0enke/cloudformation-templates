@@ -198,24 +198,6 @@ Resources:
           value = "${!aws_cloudfront_distribution.main.domain_name}"
         }
 
-  ContentCdn:
-    Type: AWS::CloudFront::Distribution
-    Properties:
-      DistributionConfig:
-        Origins:
-        - DomainName: !GetAtt ContentBucket.DomainName
-          Id: S3Origin
-          S3OriginConfig:
-            OriginAccessIdentity: !GetAtt TerraFormCustomResource.cloudfront_oia_path
-        DefaultCacheBehavior:
-          ForwardedValues:
-            QueryString: false
-          TargetOriginId: S3Origin
-          ViewerProtocolPolicy: redirect-to-https
-        Enabled: true
-        ViewerCertificate:
-          CloudFrontDefaultCertificate: true
-
   ContentBucket:
     Type: AWS::S3::Bucket
 
