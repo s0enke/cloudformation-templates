@@ -1,6 +1,7 @@
 ## Why?
 
- - CloudFormation is nice because it manages state and has an API
+ - CloudFormation is nice because it takes care of state management and has an API. In terms of tool usage I always try to lower the total cost of ownership. Terraform has definetely a higher total cost of ownership.
+ - I'd like to have the union set of both tools in terms of resource coverage.
  - Terraform is nice because it supports more resources
  - Why not combine both in order to have the highest feature richness combined with lowest TCO
  - I don't want to reimplement functionality that is already in Terraform or CloudFormation - so I just wrote a couple of lines of glue code.
