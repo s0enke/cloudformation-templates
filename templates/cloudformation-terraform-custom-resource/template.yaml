@@ -171,7 +171,11 @@ Resources:
             compress = true
             lambda_function_association {
               event_type = "viewer-request"
-              lambda_arn = "${CdnViewerRequestFunctionVersion}"
+              lambda_arn = "${CdnViewerRequestFunctionVersion3}"
+            }
+            lambda_function_association {
+              event_type = "viewer-response"
+              lambda_arn = "${CdnViewerResponseFunctionVersion}"
             }
             forwarded_values {
               query_string = false
@@ -222,6 +226,7 @@ Resources:
       Code:
         ZipFile: |
           'use strict';
+          const util = require('util');
 
           let content = `
           <\!DOCTYPE html>
@@ -236,7 +241,12 @@ Resources:
           </html>
           `;
 
+          /*
+           * if (cookie) -> validate
+           */
+
           exports.handler = (event, context, callback) => {
+              console.log(util.inspect(event, { showHidden: true, depth: null }));
               const response = {
                   status: '401',
                   statusDescription: 'Unauthorized',
@@ -280,10 +290,68 @@ Resources:
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 
-  CdnViewerRequestFunctionVersion:
+  CdnViewerRequestFunctionVersion3:
     Type: "AWS::Lambda::Version"
     Properties:
       FunctionName: !Ref CdnViewerRequestFunction
+
+  CdnViewerResponseFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-CdnViewerResponse'
+      Code:
+        ZipFile: |
+          'use strict';
+          const util = require('util');
+
+          exports.handler = (event, context, callback) => {
+              const response = event.Records[0].cf.response;
+
+              response.headers['strict-transport-security'] = [{
+                  'key': 'Strict-Transport-Security',
+                  'value': 'max-age=31536000; includeSubDomains;'
+              }];
+              response.headers['x-frame-options'] = [{
+                  'key': 'X-Frame-Options',
+                  'value': 'DENY'
+              }];
+              response.headers['cache-control'] = [{
+                  'key': 'Cache-Control',
+                  'value': 'no-store'
+              }];
+              response.headers['pragma'] = [{
+                  'key': 'Pragma',
+                  'value': 'no-cache'
+              }];
+
+              callback(null, response);
+          };
+
+      Handler: index.handler
+      Runtime: nodejs6.10
+      Timeout: 1
+      MemorySize: 128
+      Role: !GetAtt CdnViewerResponseFunctionRole.Arn
+
+  CdnViewerResponseFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+            - edgelambda.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  CdnViewerResponseFunctionVersion:
+    Type: "AWS::Lambda::Version"
+    Properties:
+      FunctionName: !Ref CdnViewerResponseFunction
 
 Outputs:
   CdnDomain:
