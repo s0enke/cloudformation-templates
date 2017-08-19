@@ -130,7 +130,7 @@ Resources:
           value = "${!aws_cloudfront_origin_access_identity.origin_access_identity.cloudfront_access_identity_path}"
         }
 
-  ContentCdnWithTerraform:
+  ContentCdn:
     DependsOn: TerraFormExecuteFunction
     Type: Custom::TerraFormExecute
     Properties:
@@ -139,7 +139,7 @@ Resources:
         terraform {
           backend "s3" {
             bucket = "${TerraFormStateStorage}"
-            key    = "ContentCdnWithTerraform.tfstate"
+            key    = "ContentCdn.tfstate"
             region = "${AWS::Region}"
           }
         }
@@ -348,4 +348,4 @@ Resources:
 Outputs:
   CdnDomain:
     Description: CdnDomain
-    Value: !GetAtt ContentCdnWithTerraform.cloudfront_domain_name
+    Value: !GetAtt ContentCdn.cloudfront_domain_name
