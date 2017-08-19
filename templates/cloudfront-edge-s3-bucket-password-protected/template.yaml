@@ -144,10 +144,6 @@ Resources:
           }
         }
 
-        resource "aws_cloudfront_origin_access_identity" "origin_access_identity" {
-          comment = "I am a resource managed by Terraform!"
-        }
-
         resource "aws_cloudfront_distribution" "main" {
           enabled = true
           http_version = "http2"
@@ -157,7 +153,7 @@ Resources:
             origin_id = "s3-origin"
             domain_name = "${ContentBucket.DomainName}"
             s3_origin_config {
-              origin_access_identity = "${!aws_cloudfront_origin_access_identity.origin_access_identity.cloudfront_access_identity_path}"
+              origin_access_identity = "${TerraFormCustomResource.cloudfront_oia_path}"
             }
           }
           default_cache_behavior {
@@ -192,10 +188,6 @@ Resources:
               restriction_type = "none"
             }
           }
-        }
-
-        output "cloudfront_oia_arn" {
-          value = "${!aws_cloudfront_origin_access_identity.origin_access_identity.iam_arn}"
         }
 
         output "cloudfront_domain_name" {
