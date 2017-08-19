@@ -114,7 +114,7 @@ Resources:
         terraform {
           backend "s3" {
             bucket = "${TerraFormStateStorage}"
-            key    = "terraform.tfstate"
+            key    = "TerraFormCustomResource.tfstate"
             region = "${AWS::Region}"
           }
         }
@@ -140,7 +140,7 @@ Resources:
         terraform {
           backend "s3" {
             bucket = "${TerraFormStateStorage}"
-            key    = "terraform.tfstate"
+            key    = "ContentCdnWithTerraform.tfstate"
             region = "${AWS::Region}"
           }
         }
