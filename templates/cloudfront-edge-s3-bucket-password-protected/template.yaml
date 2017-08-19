@@ -1,0 +1,360 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+
+Resources:
+  TerraFormExecuteFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        ZipFile: |
+          import boto3
+          import time
+          import json
+          import cfnresponse
+          import subprocess
+          import os
+
+          def handler(event, context):
+              print("Received event: " + json.dumps(event, indent=2))
+
+              terraform_working_directory = '/tmp/terraform_files'
+
+              # TODO: sha check
+              subprocess.check_output('curl https://releases.hashicorp.com/terraform/0.10.0/terraform_0.10.0_linux_amd64.zip > /tmp/terraform.zip', shell=True)
+              subprocess.check_output('unzip -o -d /tmp /tmp/terraform.zip', shell=True)
+              #print(subprocess.check_output('/tmp/terraform version', shell=True))
+
+              if event['RequestType'] == 'Delete':
+                  cfnresponse.send(event=event, context=context, responseStatus=cfnresponse.SUCCESS, responseData={}, physicalResourceId=event['LogicalResourceId'])
+                  return
+
+              # write terraform file
+              os.makedirs(terraform_working_directory, exist_ok=True)
+              open(os.path.join(terraform_working_directory, 'terraform.tf'), 'w').write(event['ResourceProperties']['Terraform'])
+
+              try:
+                subprocess.check_output('/tmp/terraform init', shell=True, cwd=terraform_working_directory)
+                print(subprocess.check_output('/tmp/terraform plan', stderr=subprocess.STDOUT, shell=True, cwd=terraform_working_directory))
+                print(subprocess.check_output('/tmp/terraform apply', stderr=subprocess.STDOUT, shell=True, cwd=terraform_working_directory))
+
+                terraform_outputs = json.loads(subprocess.check_output('/tmp/terraform output -json', stderr=subprocess.STDOUT, shell=True, cwd=terraform_working_directory))
+                response_data = {key: value['value'] for key, value in terraform_outputs.items()}
+
+                cfnresponse.send(event=event, context=context, responseStatus=cfnresponse.SUCCESS, responseData=response_data, physicalResourceId=event['LogicalResourceId'])
+
+              except subprocess.CalledProcessError as exc:
+                print("Status : FAILED", exc.returncode, exc.output)
+                # TODO: add response data
+                cfnresponse.send(event=event, context=context, responseStatus=cfnresponse.FAILED, responseData={}, physicalResourceId=event['LogicalResourceId'])
+                return
+
+
+      Handler: index.handler
+      Runtime: python3.6
+      Timeout: 300
+      Role: !GetAtt TerraFormExecuteFunctionRole.Arn
+
+  TerraFormStateStorage:
+    Type: AWS::S3::Bucket
+    Properties:
+      VersioningConfiguration:
+        Status: Enabled
+
+  TerraFormExecuteFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+      - PolicyName: AllowWriteAndReadTerraformStateStorage
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - s3:Put*
+            - s3:Get*
+            - s3:List*
+            Resource:
+            - !GetAtt TerraFormStateStorage.Arn
+            - !Sub '${TerraFormStateStorage.Arn}/*'
+  TerraformExecutionPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: AllowCloudFrontAccess
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+            - cloudfront:*
+            Resource: '*'
+          - Effect: Allow
+            Action: lambda:*
+            Resource: '*'
+          - Effect: Allow
+            Action: iam:CreateServiceLinkedRole
+            Resource: '*'
+      Roles:
+      - !Ref TerraFormExecuteFunctionRole
+
+  TerraFormCustomResource:
+    DependsOn: TerraFormExecuteFunction
+    Type: Custom::TerraFormExecute
+    Properties:
+      ServiceToken: !GetAtt TerraFormExecuteFunction.Arn
+      Terraform: !Sub |
+        terraform {
+          backend "s3" {
+            bucket = "${TerraFormStateStorage}"
+            key    = "terraform.tfstate"
+            region = "${AWS::Region}"
+          }
+        }
+
+        resource "aws_cloudfront_origin_access_identity" "origin_access_identity" {
+          comment = "I am a resource managed by Terraform!"
+        }
+
+        output "cloudfront_oia_arn" {
+          value = "${!aws_cloudfront_origin_access_identity.origin_access_identity.iam_arn}"
+        }
+
+        output "cloudfront_oia_path" {
+          value = "${!aws_cloudfront_origin_access_identity.origin_access_identity.cloudfront_access_identity_path}"
+        }
+
+  ContentCdnWithTerraform:
+    DependsOn: TerraFormExecuteFunction
+    Type: Custom::TerraFormExecute
+    Properties:
+      ServiceToken: !GetAtt TerraFormExecuteFunction.Arn
+      Terraform: !Sub |
+        terraform {
+          backend "s3" {
+            bucket = "${TerraFormStateStorage}"
+            key    = "terraform.tfstate"
+            region = "${AWS::Region}"
+          }
+        }
+
+        resource "aws_cloudfront_origin_access_identity" "origin_access_identity" {
+          comment = "I am a resource managed by Terraform!"
+        }
+
+        resource "aws_cloudfront_distribution" "main" {
+          enabled = true
+          http_version = "http2"
+          price_class = "PriceClass_100"
+          is_ipv6_enabled = true
+          origin {
+            origin_id = "s3-origin"
+            domain_name = "${ContentBucket.DomainName}"
+            s3_origin_config {
+              origin_access_identity = "${!aws_cloudfront_origin_access_identity.origin_access_identity.cloudfront_access_identity_path}"
+            }
+          }
+          default_cache_behavior {
+            target_origin_id = "s3-origin"
+            allowed_methods = ["GET", "HEAD"]
+            cached_methods = ["GET", "HEAD"]
+            viewer_protocol_policy = "redirect-to-https"
+            min_ttl = 0
+            default_ttl = 3600
+            max_ttl = 86400
+            compress = true
+            lambda_function_association {
+              event_type = "viewer-request"
+              lambda_arn = "${CdnViewerRequestFunctionVersion3}"
+            }
+            lambda_function_association {
+              event_type = "viewer-response"
+              lambda_arn = "${CdnViewerResponseFunctionVersion}"
+            }
+            forwarded_values {
+              query_string = false
+              cookies {
+                forward = "none"
+              }
+            }
+          }
+          viewer_certificate {
+            cloudfront_default_certificate = true
+          }
+          restrictions {
+            geo_restriction {
+              restriction_type = "none"
+            }
+          }
+        }
+
+        output "cloudfront_oia_arn" {
+          value = "${!aws_cloudfront_origin_access_identity.origin_access_identity.iam_arn}"
+        }
+
+        output "cloudfront_domain_name" {
+          value = "${!aws_cloudfront_distribution.main.domain_name}"
+        }
+
+  ContentBucket:
+    Type: AWS::S3::Bucket
+
+  ContentBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ContentBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          Effect: Allow
+          Principal:
+            AWS: !GetAtt TerraFormCustomResource.cloudfront_oia_arn
+          Action: s3:GetObject
+          Resource:
+          - !Sub '${ContentBucket.Arn}/*'
+
+  CdnViewerRequestFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-CdnViewerRequest'
+      Code:
+        ZipFile: |
+          'use strict';
+          const util = require('util');
+
+          let content = `
+          <\!DOCTYPE html>
+          <html lang="en">
+            <head>
+              <meta charset="utf-8">
+              <title>Simple Lambda@Edge Static Content Response</title>
+            </head>
+            <body>
+              <p>Hello from Lambda@Edge!</p>
+            </body>
+          </html>
+          `;
+
+          /*
+           * if (cookie) -> validate
+           */
+
+          exports.handler = (event, context, callback) => {
+              console.log(util.inspect(event, { showHidden: true, depth: null }));
+              const response = {
+                  status: '401',
+                  statusDescription: 'Unauthorized',
+                  headers: {
+                      'www-authenticate': [{
+                          key: 'WWW-Authenticate',
+                          value: 'Basic realm="Lambda@Edge ist 1 nices CDN vong programmierbarkeit her."'
+                      }],
+                      'content-type': [{
+                          key: 'Content-Type',
+                          value: 'text/html'
+                      }],
+                      'content-encoding': [{
+                          key: 'Content-Encoding',
+                          value: 'UTF-8'
+                      }],
+                  },
+                  body: content,
+              };
+              callback(null, response);
+          };
+
+      Handler: index.handler
+      Runtime: nodejs6.10
+      Timeout: 1
+      MemorySize: 128
+      Role: !GetAtt CdnViewerRequestFunctionRole.Arn
+
+  CdnViewerRequestFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+            - edgelambda.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  CdnViewerRequestFunctionVersion3:
+    Type: "AWS::Lambda::Version"
+    Properties:
+      FunctionName: !Ref CdnViewerRequestFunction
+
+  CdnViewerResponseFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-CdnViewerResponse'
+      Code:
+        ZipFile: |
+          'use strict';
+          const util = require('util');
+
+          exports.handler = (event, context, callback) => {
+              const response = event.Records[0].cf.response;
+
+              response.headers['strict-transport-security'] = [{
+                  'key': 'Strict-Transport-Security',
+                  'value': 'max-age=31536000; includeSubDomains;'
+              }];
+              response.headers['x-frame-options'] = [{
+                  'key': 'X-Frame-Options',
+                  'value': 'DENY'
+              }];
+              response.headers['cache-control'] = [{
+                  'key': 'Cache-Control',
+                  'value': 'no-store'
+              }];
+              response.headers['pragma'] = [{
+                  'key': 'Pragma',
+                  'value': 'no-cache'
+              }];
+
+              callback(null, response);
+          };
+
+      Handler: index.handler
+      Runtime: nodejs6.10
+      Timeout: 1
+      MemorySize: 128
+      Role: !GetAtt CdnViewerResponseFunctionRole.Arn
+
+  CdnViewerResponseFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+            - edgelambda.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  CdnViewerResponseFunctionVersion:
+    Type: "AWS::Lambda::Version"
+    Properties:
+      FunctionName: !Ref CdnViewerResponseFunction
+
+Outputs:
+  CdnDomain:
+    Description: CdnDomain
+    Value: !GetAtt ContentCdnWithTerraform.cloudfront_domain_name
