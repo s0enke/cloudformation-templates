@@ -104,7 +104,7 @@ Resources:
       Roles:
       - !Ref TerraFormExecuteFunctionRole
 
-  TerraFormCustomResource:
+  CdnOriginAccessIdentity:
     DependsOn: TerraFormExecuteFunction
     Type: Custom::TerraFormExecute
     Properties:
@@ -113,7 +113,7 @@ Resources:
         terraform {
           backend "s3" {
             bucket = "${TerraFormStateStorage}"
-            key    = "TerraFormCustomResource.tfstate"
+            key    = "CdnOriginAccessIdentity.tfstate"
             region = "${AWS::Region}"
           }
         }
@@ -153,7 +153,7 @@ Resources:
             origin_id = "s3-origin"
             domain_name = "${ContentBucket.DomainName}"
             s3_origin_config {
-              origin_access_identity = "${TerraFormCustomResource.cloudfront_oia_path}"
+              origin_access_identity = "${CdnOriginAccessIdentity.cloudfront_oia_path}"
             }
           }
           default_cache_behavior {
@@ -206,7 +206,7 @@ Resources:
         Statement:
           Effect: Allow
           Principal:
-            AWS: !GetAtt TerraFormCustomResource.cloudfront_oia_arn
+            AWS: !GetAtt CdnOriginAccessIdentity.cloudfront_oia_arn
           Action: s3:GetObject
           Resource:
           - !Sub '${ContentBucket.Arn}/*'
