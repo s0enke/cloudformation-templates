@@ -8,6 +8,14 @@
 
 (TODO: checkout my own TF article for more arguments )
 
+## Features
+
+ - Execute arbitrary Terraform code in CloudFormation
+ - Pass parameters from CloudFormation to Terraform
+ - Use outputs from Terraform in CloudFormation (e.g. the ID of a created resource).
+ - Creation, update and delete is supported
+ - Keeps care of Terraform state file handling by providing a private S3 bucket for storage
+
 ## Terraform outputs
 
 Terraform outputs are passed 1:1 to CloudFormation so you can use it with the `Fn::GetAtt` method, e.g.
