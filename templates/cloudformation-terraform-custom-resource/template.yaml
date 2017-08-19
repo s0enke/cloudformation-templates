@@ -34,7 +34,6 @@ Resources:
 
               try:
                 subprocess.check_output('/tmp/terraform init', shell=True, cwd=terraform_working_directory)
-                print(subprocess.check_output('/tmp/terraform plan', stderr=subprocess.STDOUT, shell=True, cwd=terraform_working_directory))
                 print(subprocess.check_output('/tmp/terraform apply', stderr=subprocess.STDOUT, shell=True, cwd=terraform_working_directory))
 
                 terraform_outputs = json.loads(subprocess.check_output('/tmp/terraform output -json', stderr=subprocess.STDOUT, shell=True, cwd=terraform_working_directory))
