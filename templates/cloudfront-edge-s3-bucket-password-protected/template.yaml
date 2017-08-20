@@ -170,7 +170,11 @@ Resources:
             compress = true
             lambda_function_association {
               event_type = "viewer-request"
-              lambda_arn = "${CdnViewerRequestFunctionVersion3}"
+              lambda_arn = "${CdnViewerRequestFunctionVersion5}"
+            }
+            lambda_function_association {
+              event_type = "origin-request"
+              lambda_arn = "${CdnOriginRequestFunctionVersion}"
             }
             lambda_function_association {
               event_type = "viewer-response"
@@ -223,6 +227,51 @@ Resources:
           'use strict';
           const util = require('util');
 
+          exports.handler = (event, context, callback) => {
+              console.log(util.inspect(event, { showHidden: true, depth: null }));
+              const request = event.Records[0].cf.request;
+              request.headers['x-s0enke'] = [{'key': 'x-s0enke', 'value': 'juhu'}]
+
+              console.log(util.inspect(request, { showHidden: true, depth: null }));
+              console.log(util.inspect(callback, { showHidden: true, depth: null }));
+              callback(null, request);
+          };
+
+      Handler: index.handler
+      Runtime: nodejs6.10
+      Timeout: 1
+      MemorySize: 128
+      Role: !GetAtt CdnViewerRequestFunctionRole.Arn
+
+  CdnViewerRequestFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+            - edgelambda.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  CdnViewerRequestFunctionVersion5:
+    Type: "AWS::Lambda::Version"
+    Properties:
+      FunctionName: !Ref CdnViewerRequestFunction
+
+  CdnOriginRequestFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-CdnOriginRequest'
+      Code:
+        ZipFile: |
+          'use strict';
+          const util = require('util');
+
           let content = `
           <\!DOCTYPE html>
           <html lang="en">
@@ -235,10 +284,6 @@ Resources:
             </body>
           </html>
           `;
-
-          /*
-           * if (cookie) -> validate
-           */
 
           exports.handler = (event, context, callback) => {
               console.log(util.inspect(event, { showHidden: true, depth: null }));
@@ -268,9 +313,8 @@ Resources:
       Runtime: nodejs6.10
       Timeout: 1
       MemorySize: 128
-      Role: !GetAtt CdnViewerRequestFunctionRole.Arn
-
-  CdnViewerRequestFunctionRole:
+      Role: !GetAtt CdnOriginRequestFunctionRole.Arn
+  CdnOriginRequestFunctionRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -284,11 +328,10 @@ Resources:
           Action: sts:AssumeRole
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-
-  CdnViewerRequestFunctionVersion3:
+  CdnOriginRequestFunctionVersion:
     Type: "AWS::Lambda::Version"
     Properties:
-      FunctionName: !Ref CdnViewerRequestFunction
+      FunctionName: !Ref CdnOriginRequestFunction
 
   CdnViewerResponseFunction:
     Type: AWS::Lambda::Function
