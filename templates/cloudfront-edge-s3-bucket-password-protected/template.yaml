@@ -35,8 +35,8 @@ Resources:
 
               try:
                 # https://github.com/hashicorp/terraform/issues/12971
-                subprocess.check_output('rm -fr .terraform/terraform.tfstate', stdout=sys.stdout, shell=True, cwd=terraform_working_directory)
-                subprocess.check_call('/tmp/terraform init', stdout=sys.stdout, shell=True, cwd=terraform_working_directory)
+                subprocess.check_output('rm -fr .terraform/terraform.tfstate', shell=True, cwd=terraform_working_directory)
+                subprocess.check_output('/tmp/terraform init', shell=True, cwd=terraform_working_directory)
                 print(subprocess.check_output('/tmp/terraform apply', stderr=subprocess.STDOUT, shell=True, cwd=terraform_working_directory))
 
                 terraform_outputs = json.loads(subprocess.check_output('/tmp/terraform output -json', stderr=subprocess.STDOUT, shell=True, cwd=terraform_working_directory))
