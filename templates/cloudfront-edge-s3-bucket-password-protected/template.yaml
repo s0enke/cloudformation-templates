@@ -259,7 +259,7 @@ Resources:
       - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 
   CdnViewerRequestFunctionVersion7:
-    Type: "AWS::Lambda::Version"
+    Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref CdnViewerRequestFunction
 
@@ -329,7 +329,7 @@ Resources:
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
   CdnOriginRequestFunctionVersion:
-    Type: "AWS::Lambda::Version"
+    Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref CdnOriginRequestFunction
 
@@ -387,7 +387,7 @@ Resources:
       - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 
   CdnViewerResponseFunctionVersion:
-    Type: "AWS::Lambda::Version"
+    Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref CdnViewerResponseFunction
 
