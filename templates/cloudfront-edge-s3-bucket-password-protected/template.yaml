@@ -170,7 +170,7 @@ Resources:
             compress = true
             lambda_function_association {
               event_type = "viewer-request"
-              lambda_arn = "${CdnViewerRequestFunctionVersion8}"
+              lambda_arn = "${CdnViewerRequestFunctionVersion9}"
             }
             lambda_function_association {
               event_type = "origin-request"
@@ -228,7 +228,8 @@ Resources:
 
           exports.handler = (event, context, callback) => {
               const request = event.Records[0].cf.request;
-              request.headers['x-authorization'] = [{'key': 'x-authorization', 'value': request.headers['authorization'][0].value }]
+              request.headers['x-authorization-passthrough-from-viewer-request'] =
+                [{'key': 'x-authorization-passthrough-from-viewer-request', 'value': request.headers['authorization'][0].value }]
               callback(null, request);
           };
 
@@ -253,7 +254,7 @@ Resources:
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 
-  CdnViewerRequestFunctionVersion8:
+  CdnViewerRequestFunctionVersion9:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref CdnViewerRequestFunction
