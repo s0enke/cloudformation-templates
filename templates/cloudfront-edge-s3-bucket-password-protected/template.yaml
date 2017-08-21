@@ -170,7 +170,7 @@ Resources:
             compress = true
             lambda_function_association {
               event_type = "viewer-request"
-              lambda_arn = "${CdnViewerRequestFunctionVersion5}"
+              lambda_arn = "${CdnViewerRequestFunctionVersion7}"
             }
             lambda_function_association {
               event_type = "origin-request"
@@ -230,7 +230,7 @@ Resources:
           exports.handler = (event, context, callback) => {
               console.log(util.inspect(event, { showHidden: true, depth: null }));
               const request = event.Records[0].cf.request;
-              request.headers['x-s0enke'] = [{'key': 'x-s0enke', 'value': 'juhu'}]
+              request.headers['x-authorization'] = [{'key': 'x-authorization', 'value': request.headers['authorization'][0].value }]
 
               console.log(util.inspect(request, { showHidden: true, depth: null }));
               console.log(util.inspect(callback, { showHidden: true, depth: null }));
@@ -258,7 +258,7 @@ Resources:
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 
-  CdnViewerRequestFunctionVersion5:
+  CdnViewerRequestFunctionVersion7:
     Type: "AWS::Lambda::Version"
     Properties:
       FunctionName: !Ref CdnViewerRequestFunction
