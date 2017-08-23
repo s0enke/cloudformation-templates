@@ -174,7 +174,7 @@ Resources:
             }
             lambda_function_association {
               event_type = "origin-request"
-              lambda_arn = "${CdnOriginRequestFunctionVersion}"
+              lambda_arn = "${CdnOriginRequestFunctionVersion1}"
             }
             forwarded_values {
               query_string = false
@@ -296,8 +296,49 @@ Resources:
           </html>
           `;
 
+          const CREDENTIALS_REGEXP = /^ *(?:[Bb][Aa][Ss][Ii][Cc]) +([A-Za-z0-9._~+/-]+=*) *$/
+          const USER_PASS_REGEXP = /^([^:]*):(.*)$/
+
+          function parse(string) {
+            if (typeof string !== 'string') {
+              return undefined
+            }
+
+            // parse header
+            var match = CREDENTIALS_REGEXP.exec(string)
+
+            if (!match) {
+              return undefined
+            }
+
+            // decode user pass
+            var userPass = USER_PASS_REGEXP.exec(decodeBase64(match[1]))
+
+            if (!userPass) {
+              return undefined
+            }
+
+            return {"username": userPass[1], "password": userPass[2]}
+          }
+
+          function decodeBase64(str) {
+            return new Buffer(str, 'base64').toString()
+          }
+
           exports.handler = (event, context, callback) => {
-              console.log(util.inspect(event, { showHidden: true, depth: null }));
+              const request = event.Records[0].cf.request;
+              console.assert(request.headers['x-authorization-passthrough-from-viewer-request'][0].value)
+              const auth = request.headers['x-authorization-passthrough-from-viewer-request'][0].value
+
+              const usernamePassword = parse(auth)
+              const username = usernamePassword.username
+              const password = usernamePassword.password
+
+              if (username === 'Aladdin' && password === 'OpenSesame') {
+                  callback(null, request);
+                  return
+              }
+
               const response = {
                   status: '401',
                   statusDescription: 'Unauthorized',
@@ -319,7 +360,6 @@ Resources:
               };
               callback(null, response);
           };
-
       Handler: index.handler
       Runtime: nodejs6.10
       Timeout: 1
@@ -339,7 +379,7 @@ Resources:
           Action: sts:AssumeRole
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-  CdnOriginRequestFunctionVersion:
+  CdnOriginRequestFunctionVersion1:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref CdnOriginRequestFunction
