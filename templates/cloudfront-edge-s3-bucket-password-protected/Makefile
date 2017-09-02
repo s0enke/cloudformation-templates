@@ -1,7 +1,7 @@
-deploy:
+deploy_ansible:
 	ansible localhost -m cloudformation -a "stack_name=cfn-edge-n template=template.yaml region=us-east-1"
 
-deploy_new:
+deploy_aws_cli:
 	aws cloudformation deploy --template-file template.yaml --stack-name cfn-edge-n --capabilities CAPABILITY_IAM --region=us-east-1
 
 test_viewer_request_without_authorization:
