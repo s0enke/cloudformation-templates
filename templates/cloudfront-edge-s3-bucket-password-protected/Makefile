@@ -25,3 +25,10 @@ test_origin_request_with_authorization:
 	  outfile | base64 -d
 	cat outfile
 	@@rm outfile
+
+test_cdn_with_correct_credentials:
+	curl -v -u Aladdin:OpenSesame https://d1h2azdn53n2f5.cloudfront.net
+
+
+test_cdn_with_wrong_credentials:
+	curl -v -u Aladdin:WrongPass https://d1h2azdn53n2f5.cloudfront.net
