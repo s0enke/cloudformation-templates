@@ -174,7 +174,7 @@ Resources:
             }
             lambda_function_association {
               event_type = "origin-request"
-              lambda_arn = "${CdnOriginRequestFunctionVersion6}"
+              lambda_arn = "${CdnOriginRequestFunctionVersion7}"
             }
             forwarded_values {
               query_string = false
@@ -327,8 +327,8 @@ Resources:
 
               const params = {
                 AuthFlow: 'ADMIN_NO_SRP_AUTH',
-                ClientId: '2jk6u0qsnvom3lc9cnfn03a9v3',
-                UserPoolId: 'us-east-1_wfEHFSnVP',
+                ClientId: '${UserPoolEdgeClient}',
+                UserPoolId: '${UserPool}',
                 AuthParameters: {
                   'USERNAME': username,
                   'PASSWORD': password,
@@ -386,13 +386,34 @@ Resources:
             Action:
             - cognito-idp:AdminInitiateAuth
             Resource:
-            - arn:aws:cognito-idp:us-east-1:336007894976:userpool/us-east-1_wfEHFSnVP
-  CdnOriginRequestFunctionVersion6:
+            - !GetAtt UserPool.Arn
+  CdnOriginRequestFunctionVersion7:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref CdnOriginRequestFunction
+
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
+      UserPoolName: !Sub ${AWS::StackName}-users
+
+  UserPoolEdgeClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ExplicitAuthFlows:
+      - ADMIN_NO_SRP_AUTH
+      GenerateSecret: false
+      UserPoolId: !Ref UserPool
 
 Outputs:
   CdnDomain:
     Description: CdnDomain
     Value: !GetAtt ContentCdn.cloudfront_domain_name
+  UserPoolId:
+    Description: ID of the Cognito UserPool
+    Value: !Ref UserPool
+  UserPoolEdgeClientId:
+    Description: ID of the Cognito UserPool Client ID for the Edge functions
+    Value: !Ref UserPoolEdgeClient
