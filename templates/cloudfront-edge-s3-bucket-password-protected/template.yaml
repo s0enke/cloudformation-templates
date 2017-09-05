@@ -174,7 +174,7 @@ Resources:
             }
             lambda_function_association {
               event_type = "origin-request"
-              lambda_arn = "${CdnOriginRequestFunctionVersion1}"
+              lambda_arn = "${CdnOriginRequestFunctionVersion6}"
             }
             forwarded_values {
               query_string = false
@@ -279,9 +279,10 @@ Resources:
     Properties:
       FunctionName: !Sub '${AWS::StackName}-CdnOriginRequest'
       Code:
-        ZipFile: |
+        ZipFile: !Sub |
           'use strict';
           const util = require('util');
+          const AWS = require('aws-sdk');
 
           const CREDENTIALS_REGEXP = /^ *(?:[Bb][Aa][Ss][Ii][Cc]) +([A-Za-z0-9._~+/-]+=*) *$/
           const USER_PASS_REGEXP = /^([^:]*):(.*)$/
@@ -321,26 +322,45 @@ Resources:
               const username = usernamePassword.username
               const password = usernamePassword.password
 
-              if (username === 'Aladdin' && password === 'OpenSesame') {
-                  callback(null, request);
-                  return
+              console.log(username)
+              console.log(password)
+
+              const params = {
+                AuthFlow: 'ADMIN_NO_SRP_AUTH',
+                ClientId: '2jk6u0qsnvom3lc9cnfn03a9v3',
+                UserPoolId: 'us-east-1_wfEHFSnVP',
+                AuthParameters: {
+                  'USERNAME': username,
+                  'PASSWORD': password,
+                },
+              };
+
+              const cognitoidentityserviceprovider = new AWS.CognitoIdentityServiceProvider({region: '${AWS::Region}'});
+
+              cognitoidentityserviceprovider.adminInitiateAuth(params, function(err, data) {
+                  if (err) {
+                    console.log(err);
+                    const response = {
+                        status: '401',
+                        statusDescription: 'Unauthorized',
+                        headers: {
+                            'www-authenticate': [{
+                                key: 'WWW-Authenticate',
+                                value: 'Basic realm="Lambda@Edge ist 1 nices CDN vong programmierbarkeit her."'
+                            }],
+                        },
+                    };
+                    callback(null, response);
+                  } else {
+                    console.log(data);
+                    callback(null, request);
+                  }
+                });
               }
 
-              const response = {
-                  status: '401',
-                  statusDescription: 'Unauthorized',
-                  headers: {
-                      'www-authenticate': [{
-                          key: 'WWW-Authenticate',
-                          value: 'Basic realm="Lambda@Edge ist 1 nices CDN vong programmierbarkeit her."'
-                      }],
-                  },
-              };
-              callback(null, response);
-          };
       Handler: index.handler
       Runtime: nodejs6.10
-      Timeout: 1
+      Timeout: 3
       MemorySize: 128
       Role: !GetAtt CdnOriginRequestFunctionRole.Arn
   CdnOriginRequestFunctionRole:
@@ -357,7 +377,17 @@ Resources:
           Action: sts:AssumeRole
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-  CdnOriginRequestFunctionVersion1:
+      Policies:
+      - PolicyName: AllowCognitoUserPoolAuth
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - cognito-idp:AdminInitiateAuth
+            Resource:
+            - arn:aws:cognito-idp:us-east-1:336007894976:userpool/us-east-1_wfEHFSnVP
+  CdnOriginRequestFunctionVersion6:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref CdnOriginRequestFunction
