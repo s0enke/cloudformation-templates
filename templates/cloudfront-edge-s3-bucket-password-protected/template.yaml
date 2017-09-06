@@ -224,29 +224,29 @@ Resources:
           'use strict';
 
           exports.handler = (event, context, callback) => {
-              const request = event.Records[0].cf.request;
+            const request = event.Records[0].cf.request;
 
-              if (typeof request.headers['authorization'] !== "object"
-                || typeof request.headers['authorization'][0] !== "object"
-                || typeof request.headers['authorization'][0].value !== "string"
-              ) {
-                  const response = {
-                      status: '401',
-                      statusDescription: 'Unauthorized',
-                      headers: {
-                          'www-authenticate': [{
-                              key: 'WWW-Authenticate',
-                              value: 'Basic realm="Lambda@Edge ist 1 nices CDN vong programmierbarkeit her."'
-                          }],
-                      },
-                  };
-                  callback(null, response);
-                  return;
-              }
+            if (typeof request.headers['authorization'] !== "object"
+              || typeof request.headers['authorization'][0] !== "object"
+              || typeof request.headers['authorization'][0].value !== "string"
+            ) {
+              const response = {
+                status: '401',
+                statusDescription: 'Unauthorized',
+                headers: {
+                  'www-authenticate': [{
+                    key: 'WWW-Authenticate',
+                    value: 'Basic realm="Lambda@Edge ist 1 nices CDN vong programmierbarkeit her."'
+                  }],
+                },
+              };
+              callback(null, response);
+              return;
+            }
 
-              request.headers['x-authorization-passthrough-from-viewer-request'] =
-                [{'key': 'x-authorization-passthrough-from-viewer-request', 'value': request.headers['authorization'][0].value }]
-              callback(null, request);
+            request.headers['x-authorization-passthrough-from-viewer-request'] =
+              [{'key': 'x-authorization-passthrough-from-viewer-request', 'value': request.headers['authorization'][0].value }]
+            callback(null, request);
           };
 
       Handler: index.handler
@@ -316,56 +316,56 @@ Resources:
           }
 
           exports.handler = (event, context, callback) => {
-              const request = event.Records[0].cf.request;
-              console.assert(request.headers['x-authorization-passthrough-from-viewer-request'][0].value)
-              const auth = request.headers['x-authorization-passthrough-from-viewer-request'][0].value
+            const request = event.Records[0].cf.request;
+            console.assert(request.headers['x-authorization-passthrough-from-viewer-request'][0].value)
+            const auth = request.headers['x-authorization-passthrough-from-viewer-request'][0].value
 
-              const usernamePassword = parse(auth)
-              const username = usernamePassword.username
-              const password = usernamePassword.password
+            const usernamePassword = parse(auth)
+            const username = usernamePassword.username
+            const password = usernamePassword.password
 
-              console.log(username)
-              console.log(password)
+            console.log(username)
+            console.log(password)
 
-              const params = {
-                AuthFlow: 'ADMIN_NO_SRP_AUTH',
-                ClientId: '${UserPoolEdgeClient}',
-                UserPoolId: '${UserPool}',
-                AuthParameters: {
-                  'USERNAME': username,
-                  'PASSWORD': password,
-                },
-              };
+            const params = {
+              AuthFlow: 'ADMIN_NO_SRP_AUTH',
+              ClientId: '${UserPoolEdgeClient}',
+              UserPoolId: '${UserPool}',
+              AuthParameters: {
+                'USERNAME': username,
+                'PASSWORD': password,
+              },
+            };
 
-              const cognitoidentityserviceprovider = new AWS.CognitoIdentityServiceProvider({region: '${AWS::Region}'});
+            const cognitoidentityserviceprovider = new AWS.CognitoIdentityServiceProvider({region: '${AWS::Region}'});
 
-              cognitoidentityserviceprovider.adminInitiateAuth(params, function(err, data) {
-                  if (err) {
-                    console.log(err);
-                    const response = {
-                        status: '401',
-                        statusDescription: 'Unauthorized',
-                        headers: {
-                            'www-authenticate': [{
-                                key: 'WWW-Authenticate',
-                                value: 'Basic realm="Lambda@Edge ist 1 nices CDN vong programmierbarkeit her."'
-                            }],
-                        },
-                    };
-                    callback(null, response);
-                  } else {
-                    console.log(data);
-                    if (!path.extname(request.uri)) {
-                      // we assume a path and add index.html to the request iru, if there is no file extension
-                      const path_parts = path.parse(request.uri)
-                      const new_uri = path.join(path_parts.dir, path_parts.base, 'index.html')
-                      console.log('rewriting ' + request.uri + ' to ' + new_uri)
-                      request.uri = new_uri
-                    }
-                    callback(null, request);
-                  }
-                });
+            cognitoidentityserviceprovider.adminInitiateAuth(params, function(err, data) {
+              if (err) {
+                console.log(err);
+                const response = {
+                  status: '401',
+                  statusDescription: 'Unauthorized',
+                  headers: {
+                  'www-authenticate': [{
+                    key: 'WWW-Authenticate',
+                    value: 'Basic realm="Lambda@Edge ist 1 nices CDN vong programmierbarkeit her."'
+                  }],
+                  },
+                };
+                callback(null, response);
+              } else {
+                console.log(data);
+                if (!path.extname(request.uri)) {
+                  // we assume a path and add index.html to the request iru, if there is no file extension
+                  const path_parts = path.parse(request.uri)
+                  const new_uri = path.join(path_parts.dir, path_parts.base, 'index.html')
+                  console.log('rewriting ' + request.uri + ' to ' + new_uri)
+                  request.uri = new_uri
+                }
+                callback(null, request);
               }
+            });
+          }
 
       Handler: index.handler
       Runtime: nodejs6.10
