@@ -2,6 +2,7 @@
 
  - Only validated to work in `us-east-1`
  - directory index files have to be named`index.html`, currently hardcoded
+ - Currently, there is no redirect for paths without trailing slashes, for example redirecting `/test` to `/test/`, which is e.g. S3 website hosting default behavior.
 
 ## How to create users
 

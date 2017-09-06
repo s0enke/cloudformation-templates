@@ -175,7 +175,7 @@ Resources:
             }
             lambda_function_association {
               event_type = "origin-request"
-              lambda_arn = "${CdnOriginRequestFunctionVersion7}"
+              lambda_arn = "${CdnOriginRequestFunctionVersion8}"
             }
             forwarded_values {
               query_string = false
@@ -284,6 +284,7 @@ Resources:
           'use strict';
           const util = require('util');
           const AWS = require('aws-sdk');
+          const path = require('path')
 
           const CREDENTIALS_REGEXP = /^ *(?:[Bb][Aa][Ss][Ii][Cc]) +([A-Za-z0-9._~+/-]+=*) *$/
           const USER_PASS_REGEXP = /^([^:]*):(.*)$/
@@ -354,6 +355,13 @@ Resources:
                     callback(null, response);
                   } else {
                     console.log(data);
+                    if (!path.extname(request.uri)) {
+                      // we assume a path and add index.html to the request iru, if there is no file extension
+                      const path_parts = path.parse(request.uri)
+                      const new_uri = path.join(path_parts.dir, path_parts.base, 'index.html')
+                      console.log('rewriting ' + request.uri + ' to ' + new_uri)
+                      request.uri = new_uri
+                    }
                     callback(null, request);
                   }
                 });
@@ -388,7 +396,7 @@ Resources:
             - cognito-idp:AdminInitiateAuth
             Resource:
             - !GetAtt UserPool.Arn
-  CdnOriginRequestFunctionVersion7:
+  CdnOriginRequestFunctionVersion8:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref CdnOriginRequestFunction
