@@ -152,6 +152,7 @@ Resources:
           http_version = "http2"
           price_class = "PriceClass_100"
           is_ipv6_enabled = true
+          default_root_object = "index.html"
           origin {
             origin_id = "s3-origin"
             domain_name = "${ContentBucket.DomainName}"
@@ -417,3 +418,6 @@ Outputs:
   UserPoolEdgeClientId:
     Description: ID of the Cognito UserPool Client ID for the Edge functions
     Value: !Ref UserPoolEdgeClient
+  S3Bucket:
+    Description: Name of the S3 content bucket
+    Value: !Ref ContentBucket

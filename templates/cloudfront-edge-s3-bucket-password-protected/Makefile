@@ -1,3 +1,12 @@
+venv:
+	virtualenv -p /usr/bin/python3.6 venv
+
+pip:
+	pip install -r requirements.txt
+
+test:
+	behave features/
+
 deploy_ansible:
 	ansible localhost -m cloudformation -a "stack_name=cfn-edge-n template=template.yaml region=us-east-1"
 

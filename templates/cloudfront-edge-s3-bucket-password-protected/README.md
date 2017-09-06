@@ -1,6 +1,7 @@
 ## Known issues
 
  - Only validated to work in `us-east-1`
+ - directory index files have to be named`index.html`, currently hardcoded
 
 ## How to create users
 
