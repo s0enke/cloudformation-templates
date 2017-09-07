@@ -1,3 +1,11 @@
+## Features
+
+ - User-friendly one-button deployment - no manual setup, no `curl | sudo bash`, no "works on my machine"
+ - Fully serverless, only pay for the traffic, compute and storage you use
+ - Fully encrypted in transit (also CloudFront <> S3, despite many other offerings
+ - Users can be managed via a Cognito Userpool in the AWS Console (or via API)
+ - S3 Bucket is fully secured via Origin Access Identity. No security through obscurity as proposed in other offerings.
+
 ## Known issues
 
  - Only validated to work in `us-east-1`
