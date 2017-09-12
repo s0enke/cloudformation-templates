@@ -1,6 +1,6 @@
 ## Features
 
- - User-friendly one-button deployment - no manual setup, no `curl | sudo bash`, no "works on my machine"
+ - User-friendly fully automated one-button deployment via AWS CloudFormation - no manual setup, no `curl | sudo bash`, no "installation works on my machine"
  - Fully serverless, only pay for the traffic, compute and storage you use
  - Fully encrypted in transit (also CloudFront <> S3, despite many other offerings
  - Users can be managed via a Cognito Userpool in the AWS Console (or via API)
