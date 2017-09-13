@@ -18,6 +18,7 @@
  - directory index files have to be named`index.html`, currently hardcoded
  - Currently, there is no redirect for paths without trailing slashes, for example redirecting `/test` to `/test/`, which is e.g. S3 website hosting default behavior.
  - A 404 is currently displayed as a 403.
+ - Stack creation does not wait for the CloudFront Distribution to be fully deployed
 
 ## How to create users
 
