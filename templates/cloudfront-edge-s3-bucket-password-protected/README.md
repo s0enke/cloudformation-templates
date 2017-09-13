@@ -6,6 +6,12 @@
  - Users can be managed via a Cognito Userpool in the AWS Console (or via API)
  - S3 Bucket is fully secured via Origin Access Identity. No security through obscurity as proposed in other offerings.
 
+## Launch stack
+
+[![Launch Stack](https://github.com/s0enke/cloudformation-templates/blob/master/cloudformation-launch-stack.png?raw=true)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/create/review?templateURL=https://s3.amazonaws.com/ruempler-cloudformation-templates-prod/cloudfront-edge-s3-bucket-password-protected/template.yaml)
+
+([Download CloudFormation Template](https://s3.amazonaws.com/ruempler-cloudformation-templates-prod/cloudfront-edge-s3-bucket-password-protected/template.yaml))
+
 ## Known issues
 
  - Only validated to work in `us-east-1`
