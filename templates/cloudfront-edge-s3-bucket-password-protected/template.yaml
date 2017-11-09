@@ -108,30 +108,10 @@ Resources:
       - !Ref TerraFormExecuteFunctionRole
 
   CdnOriginAccessIdentity:
-    DependsOn: TerraFormExecuteFunction
-    Type: Custom::TerraFormExecute
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
     Properties:
-      ServiceToken: !GetAtt TerraFormExecuteFunction.Arn
-      Terraform: !Sub |
-        terraform {
-          backend "s3" {
-            bucket = "${TerraFormStateStorage}"
-            key    = "CdnOriginAccessIdentity.tfstate"
-            region = "${AWS::Region}"
-          }
-        }
-
-        resource "aws_cloudfront_origin_access_identity" "origin_access_identity" {
-          comment = "I am a resource managed by Terraform!"
-        }
-
-        output "cloudfront_oia_arn" {
-          value = "${!aws_cloudfront_origin_access_identity.origin_access_identity.iam_arn}"
-        }
-
-        output "cloudfront_oia_path" {
-          value = "${!aws_cloudfront_origin_access_identity.origin_access_identity.cloudfront_access_identity_path}"
-        }
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub "Managed by CloudFormation stack '${AWS::StackName}'"
 
   ContentCdn:
     DependsOn: TerraFormExecuteFunction
@@ -157,7 +137,7 @@ Resources:
             origin_id = "s3-origin"
             domain_name = "${ContentBucket.DomainName}"
             s3_origin_config {
-              origin_access_identity = "${CdnOriginAccessIdentity.cloudfront_oia_path}"
+              origin_access_identity = "origin-access-identity/cloudfront/${CdnOriginAccessIdentity}"
             }
           }
           default_cache_behavior {
@@ -210,7 +190,7 @@ Resources:
         Statement:
           Effect: Allow
           Principal:
-            AWS: !GetAtt CdnOriginAccessIdentity.cloudfront_oia_arn
+            CanonicalUser: !GetAtt CdnOriginAccessIdentity.S3CanonicalUserId
           Action: s3:GetObject
           Resource:
           - !Sub '${ContentBucket.Arn}/*'
