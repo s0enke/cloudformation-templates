@@ -21,7 +21,7 @@ Resources:
               terraform_working_directory = '/tmp/terraform_files'
 
               # TODO: sha check
-              subprocess.check_output('curl -o /tmp/terraform.zip https://releases.hashicorp.com/terraform/0.10.0/terraform_0.10.0_linux_amd64.zip', shell=True)
+              subprocess.check_output('curl -o /tmp/terraform.zip https://releases.hashicorp.com/terraform/0.10.8/terraform_0.10.8_linux_amd64.zip', shell=True)
               subprocess.check_output('unzip -o -d /tmp /tmp/terraform.zip', shell=True)
               #print(subprocess.check_output('/tmp/terraform version', shell=True))
 
