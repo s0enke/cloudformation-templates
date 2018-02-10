@@ -8,7 +8,7 @@ import string
 
 cfn_client = boto3.client('cloudformation')
 
-response = cfn_client.describe_stacks(StackName='cfn-edge-n')
+response = cfn_client.describe_stacks(StackName=os.environ['STACK_NAME'])
 cfn_stackoutputs_raw = response['Stacks'][0]['Outputs']
 cfn_stackoutputs = {raw_cfn_output['OutputKey']: raw_cfn_output['OutputValue'] for raw_cfn_output in cfn_stackoutputs_raw}
 
