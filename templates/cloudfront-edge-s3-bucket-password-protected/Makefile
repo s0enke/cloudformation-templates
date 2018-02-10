@@ -8,20 +8,20 @@ test:
 	behave features/
 
 deploy_ansible:
-	ansible localhost -m cloudformation -a "stack_name=cfn-edge-n template=template.yaml region=us-east-1"
+	ansible localhost -m cloudformation -a "stack_name=$(STACK_NAME) template=template.yaml region=$(AWS_REGION)"
 
 deploy_aws_cli:
-	aws cloudformation deploy --template-file template.yaml --stack-name cfn-edge-n --capabilities CAPABILITY_IAM --region=us-east-1
+	aws cloudformation deploy --template-file template.yaml --stack-name $(STACK_NAME) --capabilities CAPABILITY_IAM --region=$(AWS_REGION)
 
 test_viewer_request_without_authorization:
-	AWS_DEFAULT_REGION=us-east-1 aws lambda invoke --function-name cfn-edge-n-CdnViewerRequest --log-type Tail --query LogResult --output text --payload \
+	AWS_DEFAULT_REGION=$(AWS_REGION) aws lambda invoke --function-name $(STACK_NAME)-CdnViewerRequest --log-type Tail --query LogResult --output text --payload \
 	  '{"Records": [{"cf":{"request": {"headers": []}}}]}' \
 	  outfile | base64 -d
 	  cat outfile
 	@@rm outfile
 
 test_viewer_request_with_authorization:
-	AWS_DEFAULT_REGION=us-east-1 aws lambda invoke --function-name cfn-edge-n-CdnViewerRequest --log-type Tail --query LogResult --output text --payload \
+	AWS_DEFAULT_REGION=$(AWS_REGION) aws lambda invoke --function-name $(STACK_NAME)-CdnViewerRequest --log-type Tail --query LogResult --output text --payload \
 	  '{"Records":[{"cf":{"request":{"headers": {"authorization": [{"key": "authorization", "value": "Basic QWxhZGRpbjpPcGVuU2VzYW1l"}]}}}}]}' \
 	  outfile | base64 -d
 	  cat outfile
@@ -29,7 +29,7 @@ test_viewer_request_with_authorization:
 
 
 test_origin_request_with_authorization:
-	AWS_DEFAULT_REGION=us-east-1 aws lambda invoke --function-name cfn-edge-n-CdnOriginRequest --log-type Tail --query LogResult --output text --payload \
+	AWS_DEFAULT_REGION=$(AWS_REGION) aws lambda invoke --function-name $(STACK_NAME)-CdnOriginRequest --log-type Tail --query LogResult --output text --payload \
 	  '{"Records":[{"cf":{"request":{"headers": {"x-authorization-passthrough-from-viewer-request": [{"key": "x-authorization-passthrough-from-viewer-request", "value": "Basic QWxhZGRpbjpPcGVuU2VzYW1l"}]}}}}]}' \
 	  outfile | base64 -d
 	cat outfile
