@@ -2,110 +2,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
 Resources:
-  TerraFormExecuteFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      Code:
-        ZipFile: |
-          import boto3
-          import time
-          import json
-          import cfnresponse
-          import subprocess
-          import os
-          import sys
-
-          def handler(event, context):
-              print("Received event: " + json.dumps(event, indent=2))
-
-              terraform_working_directory = '/tmp/terraform_files'
-
-              # TODO: sha check
-              subprocess.check_output('curl -o /tmp/terraform.zip https://releases.hashicorp.com/terraform/0.10.8/terraform_0.10.8_linux_amd64.zip', shell=True)
-              subprocess.check_output('unzip -o -d /tmp /tmp/terraform.zip', shell=True)
-              #print(subprocess.check_output('/tmp/terraform version', shell=True))
-
-              if event['RequestType'] == 'Delete':
-                  cfnresponse.send(event=event, context=context, responseStatus=cfnresponse.SUCCESS, responseData={}, physicalResourceId=event['LogicalResourceId'])
-                  return
-
-              # write terraform file
-              os.makedirs(terraform_working_directory, exist_ok=True)
-              open(os.path.join(terraform_working_directory, 'terraform.tf'), 'w').write(event['ResourceProperties']['Terraform'])
-
-              try:
-                # https://github.com/hashicorp/terraform/issues/12971
-                subprocess.check_output('rm -fr .terraform/terraform.tfstate', shell=True, cwd=terraform_working_directory)
-                subprocess.check_output('/tmp/terraform init', shell=True, cwd=terraform_working_directory)
-                print(subprocess.check_output('/tmp/terraform apply', stderr=subprocess.STDOUT, shell=True, cwd=terraform_working_directory))
-
-                terraform_outputs = json.loads(subprocess.check_output('/tmp/terraform output -json', stderr=subprocess.STDOUT, shell=True, cwd=terraform_working_directory))
-                response_data = {key: value['value'] for key, value in terraform_outputs.items()}
-
-                cfnresponse.send(event=event, context=context, responseStatus=cfnresponse.SUCCESS, responseData=response_data, physicalResourceId=event['LogicalResourceId'])
-
-              except subprocess.CalledProcessError as exc:
-                print("Status : FAILED", exc.returncode, exc.output)
-                # TODO: add response data
-                cfnresponse.send(event=event, context=context, responseStatus=cfnresponse.FAILED, responseData={}, physicalResourceId=event['LogicalResourceId'])
-                return
-
-
-      Handler: index.handler
-      Runtime: python3.6
-      Timeout: 300
-      Role: !GetAtt TerraFormExecuteFunctionRole.Arn
-
-  TerraFormStateStorage:
-    Type: AWS::S3::Bucket
-    Properties:
-      VersioningConfiguration:
-        Status: Enabled
-
-  TerraFormExecuteFunctionRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-        - Effect: Allow
-          Principal:
-            Service: lambda.amazonaws.com
-          Action: sts:AssumeRole
-      ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-      Policies:
-      - PolicyName: AllowWriteAndReadTerraformStateStorage
-        PolicyDocument:
-          Version: '2012-10-17'
-          Statement:
-          - Effect: Allow
-            Action:
-            - s3:Put*
-            - s3:Get*
-            - s3:List*
-            Resource:
-            - !GetAtt TerraFormStateStorage.Arn
-            - !Sub '${TerraFormStateStorage.Arn}/*'
-  TerraformExecutionPolicy:
-    Type: AWS::IAM::Policy
-    Properties:
-      PolicyName: AllowCloudFrontAccess
-      PolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Action:
-            - cloudfront:*
-            Resource: '*'
-          - Effect: Allow
-            Action: lambda:*
-            Resource: '*'
-          - Effect: Allow
-            Action: iam:CreateServiceLinkedRole
-            Resource: '*'
-      Roles:
-      - !Ref TerraFormExecuteFunctionRole
 
   CdnOriginAccessIdentity:
     Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
@@ -114,69 +10,33 @@ Resources:
         Comment: !Sub "Managed by CloudFormation stack '${AWS::StackName}'"
 
   ContentCdn:
-    DependsOn: TerraFormExecuteFunction
-    Type: Custom::TerraFormExecute
+    Type: AWS::CloudFront::Distribution
     Properties:
-      ServiceToken: !GetAtt TerraFormExecuteFunction.Arn
-      Terraform: !Sub |
-        terraform {
-          backend "s3" {
-            bucket = "${TerraFormStateStorage}"
-            key    = "ContentCdn.tfstate"
-            region = "${AWS::Region}"
-          }
-        }
-
-        resource "aws_cloudfront_distribution" "main" {
-          enabled = true
-          http_version = "http2"
-          price_class = "PriceClass_100"
-          is_ipv6_enabled = true
-          default_root_object = "index.html"
-          origin {
-            origin_id = "s3-origin"
-            domain_name = "${ContentBucket.DomainName}"
-            s3_origin_config {
-              origin_access_identity = "origin-access-identity/cloudfront/${CdnOriginAccessIdentity}"
-            }
-          }
-          default_cache_behavior {
-            target_origin_id = "s3-origin"
-            allowed_methods = ["GET", "HEAD"]
-            cached_methods = ["GET", "HEAD"]
-            viewer_protocol_policy = "redirect-to-https"
-            min_ttl = 0
-            default_ttl = 0
-            max_ttl = 0
-            compress = true
-            lambda_function_association {
-              event_type = "viewer-request"
-              lambda_arn = "${CdnViewerRequestFunctionVersion12}"
-            }
-            lambda_function_association {
-              event_type = "origin-request"
-              lambda_arn = "${CdnOriginRequestFunctionVersion8}"
-            }
-            forwarded_values {
-              query_string = false
-              cookies {
-                forward = "none"
-              }
-            }
-          }
-          viewer_certificate {
-            cloudfront_default_certificate = true
-          }
-          restrictions {
-            geo_restriction {
-              restriction_type = "none"
-            }
-          }
-        }
-
-        output "cloudfront_domain_name" {
-          value = "${!aws_cloudfront_distribution.main.domain_name}"
-        }
+      DistributionConfig:
+        PriceClass: PriceClass_100
+        Origins:
+          - DomainName: !Sub "${ContentBucket.DomainName}"
+            Id: Origin
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${CdnOriginAccessIdentity}"
+        DefaultCacheBehavior:
+          LambdaFunctionAssociations:
+          - EventType: viewer-request
+            LambdaFunctionARN: !Ref CdnViewerRequestFunctionVersion
+          Compress: true
+          DefaultTTL: 0
+          MinTTL: 0
+          MaxTTL: 0
+          AllowedMethods: ["GET", "HEAD"]
+          CachedMethods: ["GET", "HEAD"]
+          ForwardedValues:
+            QueryString: false
+          TargetOriginId: Origin
+          ViewerProtocolPolicy: redirect-to-https
+        Enabled: true
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+        HttpVersion: http2
 
   ContentBucket:
     Type: AWS::S3::Bucket
@@ -199,66 +59,6 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: !Sub '${AWS::StackName}-CdnViewerRequest'
-      Code:
-        ZipFile: |
-          'use strict';
-
-          exports.handler = (event, context, callback) => {
-            const request = event.Records[0].cf.request;
-
-            if (typeof request.headers['authorization'] !== "object"
-              || typeof request.headers['authorization'][0] !== "object"
-              || typeof request.headers['authorization'][0].value !== "string"
-            ) {
-              const response = {
-                status: '401',
-                statusDescription: 'Unauthorized',
-                headers: {
-                  'www-authenticate': [{
-                    key: 'WWW-Authenticate',
-                    value: 'Basic realm="Lambda@Edge ist 1 nices CDN vong programmierbarkeit her."'
-                  }],
-                },
-              };
-              callback(null, response);
-              return;
-            }
-
-            request.headers['x-authorization-passthrough-from-viewer-request'] =
-              [{'key': 'x-authorization-passthrough-from-viewer-request', 'value': request.headers['authorization'][0].value }]
-            callback(null, request);
-          };
-
-      Handler: index.handler
-      Runtime: nodejs6.10
-      Timeout: 1
-      MemorySize: 128
-      Role: !GetAtt CdnViewerRequestFunctionRole.Arn
-
-  CdnViewerRequestFunctionRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-        - Effect: Allow
-          Principal:
-            Service:
-            - lambda.amazonaws.com
-            - edgelambda.amazonaws.com
-          Action: sts:AssumeRole
-      ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-
-  CdnViewerRequestFunctionVersion12:
-    Type: AWS::Lambda::Version
-    Properties:
-      FunctionName: !Ref CdnViewerRequestFunction
-
-  CdnOriginRequestFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: !Sub '${AWS::StackName}-CdnOriginRequest'
       Code:
         ZipFile: !Sub |
           'use strict';
@@ -297,8 +97,26 @@ Resources:
 
           exports.handler = (event, context, callback) => {
             const request = event.Records[0].cf.request;
-            console.assert(request.headers['x-authorization-passthrough-from-viewer-request'][0].value)
-            const auth = request.headers['x-authorization-passthrough-from-viewer-request'][0].value
+
+            if (typeof request.headers['authorization'] !== "object"
+              || typeof request.headers['authorization'][0] !== "object"
+              || typeof request.headers['authorization'][0].value !== "string"
+            ) {
+              const response = {
+                status: '401',
+                statusDescription: 'Unauthorized',
+                headers: {
+                  'www-authenticate': [{
+                    key: 'WWW-Authenticate',
+                    value: 'Basic realm="Lambda@Edge ist 1 nices CDN vong programmierbarkeit her."'
+                  }],
+                },
+              };
+              callback(null, response);
+              return;
+            }
+
+            const auth = request.headers['authorization'][0].value
 
             const usernamePassword = parse(auth)
             const username = usernamePassword.username
@@ -345,14 +163,15 @@ Resources:
                 callback(null, request);
               }
             });
-          }
+          };
 
       Handler: index.handler
       Runtime: nodejs6.10
-      Timeout: 3
+      Timeout: 5
       MemorySize: 128
-      Role: !GetAtt CdnOriginRequestFunctionRole.Arn
-  CdnOriginRequestFunctionRole:
+      Role: !GetAtt CdnViewerRequestFunctionRole.Arn
+
+  CdnViewerRequestFunctionRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -376,10 +195,11 @@ Resources:
             - cognito-idp:AdminInitiateAuth
             Resource:
             - !GetAtt UserPool.Arn
-  CdnOriginRequestFunctionVersion8:
+
+  CdnViewerRequestFunctionVersion:
     Type: AWS::Lambda::Version
     Properties:
-      FunctionName: !Ref CdnOriginRequestFunction
+      FunctionName: !Ref CdnViewerRequestFunction
 
   UserPool:
     Type: AWS::Cognito::UserPool
@@ -399,7 +219,7 @@ Resources:
 Outputs:
   CdnDomain:
     Description: CdnDomain
-    Value: !GetAtt ContentCdn.cloudfront_domain_name
+    Value: !GetAtt ContentCdn.DomainName
   UserPoolId:
     Description: ID of the Cognito UserPool
     Value: !Ref UserPool
