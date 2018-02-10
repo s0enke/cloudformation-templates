@@ -23,8 +23,6 @@ Resources:
           LambdaFunctionAssociations:
           - EventType: viewer-request
             LambdaFunctionARN: !Ref CdnViewerRequestFunctionVersion
-          - EventType: origin-request
-            LambdaFunctionARN: !Ref CdnOriginRequestFunctionVersion
           Compress: true
           DefaultTTL: 0
           MinTTL: 0
@@ -61,66 +59,6 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: !Sub '${AWS::StackName}-CdnViewerRequest'
-      Code:
-        ZipFile: |
-          'use strict';
-
-          exports.handler = (event, context, callback) => {
-            const request = event.Records[0].cf.request;
-
-            if (typeof request.headers['authorization'] !== "object"
-              || typeof request.headers['authorization'][0] !== "object"
-              || typeof request.headers['authorization'][0].value !== "string"
-            ) {
-              const response = {
-                status: '401',
-                statusDescription: 'Unauthorized',
-                headers: {
-                  'www-authenticate': [{
-                    key: 'WWW-Authenticate',
-                    value: 'Basic realm="Lambda@Edge ist 1 nices CDN vong programmierbarkeit her."'
-                  }],
-                },
-              };
-              callback(null, response);
-              return;
-            }
-
-            request.headers['x-authorization-passthrough-from-viewer-request'] =
-              [{'key': 'x-authorization-passthrough-from-viewer-request', 'value': request.headers['authorization'][0].value }]
-            callback(null, request);
-          };
-
-      Handler: index.handler
-      Runtime: nodejs6.10
-      Timeout: 1
-      MemorySize: 128
-      Role: !GetAtt CdnViewerRequestFunctionRole.Arn
-
-  CdnViewerRequestFunctionRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-        - Effect: Allow
-          Principal:
-            Service:
-            - lambda.amazonaws.com
-            - edgelambda.amazonaws.com
-          Action: sts:AssumeRole
-      ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-
-  CdnViewerRequestFunctionVersion:
-    Type: AWS::Lambda::Version
-    Properties:
-      FunctionName: !Ref CdnViewerRequestFunction
-
-  CdnOriginRequestFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: !Sub '${AWS::StackName}-CdnOriginRequest'
       Code:
         ZipFile: !Sub |
           'use strict';
@@ -159,8 +97,26 @@ Resources:
 
           exports.handler = (event, context, callback) => {
             const request = event.Records[0].cf.request;
-            console.assert(request.headers['x-authorization-passthrough-from-viewer-request'][0].value)
-            const auth = request.headers['x-authorization-passthrough-from-viewer-request'][0].value
+
+            if (typeof request.headers['authorization'] !== "object"
+              || typeof request.headers['authorization'][0] !== "object"
+              || typeof request.headers['authorization'][0].value !== "string"
+            ) {
+              const response = {
+                status: '401',
+                statusDescription: 'Unauthorized',
+                headers: {
+                  'www-authenticate': [{
+                    key: 'WWW-Authenticate',
+                    value: 'Basic realm="Lambda@Edge ist 1 nices CDN vong programmierbarkeit her."'
+                  }],
+                },
+              };
+              callback(null, response);
+              return;
+            }
+
+            const auth = request.headers['authorization'][0].value
 
             const usernamePassword = parse(auth)
             const username = usernamePassword.username
@@ -207,14 +163,15 @@ Resources:
                 callback(null, request);
               }
             });
-          }
+          };
 
       Handler: index.handler
       Runtime: nodejs6.10
-      Timeout: 3
+      Timeout: 5
       MemorySize: 128
-      Role: !GetAtt CdnOriginRequestFunctionRole.Arn
-  CdnOriginRequestFunctionRole:
+      Role: !GetAtt CdnViewerRequestFunctionRole.Arn
+
+  CdnViewerRequestFunctionRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -238,10 +195,11 @@ Resources:
             - cognito-idp:AdminInitiateAuth
             Resource:
             - !GetAtt UserPool.Arn
-  CdnOriginRequestFunctionVersion:
+
+  CdnViewerRequestFunctionVersion:
     Type: AWS::Lambda::Version
     Properties:
-      FunctionName: !Ref CdnOriginRequestFunction
+      FunctionName: !Ref CdnViewerRequestFunction
 
   UserPool:
     Type: AWS::Cognito::UserPool
