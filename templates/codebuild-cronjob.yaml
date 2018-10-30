@@ -1,0 +1,76 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+  Command:
+    Type: String
+    Default: "echo 'Hello World'"
+  Image:
+    Type: String
+    Default: "aws/codebuild/eb-nodejs-4.4.6-amazonlinux-64:2.1.3"
+  CronExpression:
+    Type: String
+    Default: 'rate(5 minutes)'
+
+Resources:
+
+  ExecutionRuntime:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: !Ref Image
+        Type: LINUX_CONTAINER
+      ServiceRole: !Ref ExecutionRuntimeRole
+      Source:
+        Type: NO_SOURCE
+        BuildSpec: !Sub |
+          version: 0.1
+          phases:
+            build:
+              commands:
+                - ${Command}
+
+  ExecutionRuntimeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: codebuild.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole # Allow to log
+
+  Trigger:
+    Type: AWS::Events::Rule
+    Properties:
+      ScheduleExpression: !Ref CronExpression
+      Targets:
+      - Arn: !GetAtt ExecutionRuntime.Arn
+        Id: !Sub CodeBuild-${AWS::StackName}
+        RoleArn: !GetAtt TriggerRole.Arn
+
+  TriggerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: events.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+      - PolicyName: AllowCodeBuildRun
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - codebuild:StartBuild
+            Resource:
+            - !GetAtt ExecutionRuntime.Arn
