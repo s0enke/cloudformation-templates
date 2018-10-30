@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Schedule a command powered by AWS CodeBuild.
+Description: Schedule a command powered by AWS CodeBuild. Powered by github.com/s0enke/cloudformation-templates
 
 Parameters:
   Command:
@@ -35,7 +35,7 @@ Resources:
           phases:
             build:
               commands:
-                - ${Command}
+              - ${Command}
 
   ExecutionRuntimeRole:
     Type: AWS::IAM::Role
@@ -48,7 +48,7 @@ Resources:
             Service: codebuild.amazonaws.com
           Action: sts:AssumeRole
       ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole # Allow to log
+      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole # Allow to log
 
   Trigger:
     Type: AWS::Events::Rule
