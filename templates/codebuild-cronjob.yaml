@@ -1,15 +1,20 @@
 AWSTemplateFormatVersion: "2010-09-09"
+Description: Schedule a command powered by AWS CodeBuild.
 
 Parameters:
   Command:
     Type: String
     Default: "echo 'Hello World'"
+    Description: The command to be executed.
   Image:
     Type: String
     Default: "aws/codebuild/eb-nodejs-4.4.6-amazonlinux-64:2.1.3"
+    Description: The Docker image to be used.
+
   CronExpression:
     Type: String
     Default: 'rate(5 minutes)'
+    Description: cron and rate syntax allowed.
 
 Resources:
 
