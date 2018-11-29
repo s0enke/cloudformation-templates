@@ -1,5 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Schedule a command powered by AWS CodeBuild. Powered by github.com/s0enke/cloudformation-templates
+Transform: 'AWS::Serverless-2016-10-31'
+Description: Schedule an arbitrary command with AWS CodeBuild. Powered by github.com/s0enke/cloudformation-templates
 
 Parameters:
   Command:
