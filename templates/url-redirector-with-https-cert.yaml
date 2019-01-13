@@ -3,6 +3,8 @@ Description: HTTPS/HTTP URL redirector including CDN, HTTPS and the certificate
 Parameters:
   Subdomain:
     Type: String
+    Default: ''
+    Description: The Subdomain to be redirected, can also be empty so that the APEX domain will be redirected
   HostedZoneName:
     Type: String
     Description: Hosted Zone which needs to be in the same AWS account
@@ -15,6 +17,9 @@ Parameters:
   RedirectDestinationPath:
     Type: String
     Description: Path of the redirect destination
+
+Conditions:
+  IsApexRedirect: !Equals [!Ref Subdomain, '']
 
 Resources:
     WebsiteBucket:
@@ -58,7 +63,10 @@ Resources:
             ViewerProtocolPolicy: redirect-to-https
           Enabled: true
           Aliases:
-            - !Sub ${Subdomain}.${HostedZoneName} 
+            - !If
+              - IsApexRedirect
+              - !Ref HostedZoneName
+              - !Sub ${Subdomain}.${HostedZoneName}
           ViewerCertificate:
             AcmCertificateArn: !Ref WebsiteCertificate
             SslSupportMethod: sni-only
@@ -74,9 +82,17 @@ Resources:
     WebsiteCertificate:
       Type: AWS::CertificateManager::Certificate
       Properties:
-        DomainName: !Sub ${Subdomain}.${HostedZoneName}
+        DomainName:
+          !If
+          - IsApexRedirect
+          - !Ref HostedZoneName
+          - !Sub ${Subdomain}.${HostedZoneName}
         DomainValidationOptions:
-          - DomainName: !Sub ${Subdomain}.${HostedZoneName}
+          - DomainName:
+              !If
+              - IsApexRedirect
+              - !Ref HostedZoneName
+              - !Sub ${Subdomain}.${HostedZoneName}
             ValidationDomain: !Ref HostedZoneName
 
     DnsCname:
@@ -84,8 +100,12 @@ Resources:
       Properties:
         HostedZoneName: !Sub ${HostedZoneName }.
         RecordSets:
-          - Name: !Sub ${Subdomain}.${HostedZoneName}
-            Type: CNAME
-            TTL: 60
-            ResourceRecords:
-              - !GetAtt WebsiteCdn.DomainName
+          - Name:
+              !If
+              - IsApexRedirect
+              - !Ref HostedZoneName
+              - !Sub ${Subdomain}.${HostedZoneName}
+            Type: A
+            AliasTarget:
+              DNSName: !GetAtt WebsiteCdn.DomainName
+              HostedZoneId: Z2FDTNDATAQYW2 # Magic value for CloudFront Hosted Zone
