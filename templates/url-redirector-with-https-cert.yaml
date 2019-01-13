@@ -18,6 +18,7 @@ Parameters:
   RedirectDestinationPath:
     Type: String
     Description: Path of the redirect destination
+    Default: ''
 
 Conditions:
   IsApexRedirect: !Equals [!Ref Subdomain, '']
