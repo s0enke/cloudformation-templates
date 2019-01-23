@@ -54,9 +54,7 @@ Resources:
     Properties:
       RoleArn: !GetAtt PipelineRole.Arn
       ArtifactStore:
-        Location:
-          Ref:
-            ArtifactStoreBucket
+        Location: !Ref ArtifactStoreBucket
         Type: S3
       Stages:
         - Name: Source
