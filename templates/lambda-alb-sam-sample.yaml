@@ -1,0 +1,77 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+Description: HelloWorld Lambda function template for Application Load Balancer Lambda as target
+
+Parameters:
+  Subnets:
+    Type: List<AWS::EC2::Subnet::Id>
+  VpcId:
+      Type: AWS::EC2::VPC::Id
+
+Resources:
+  HelloWorldFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: An Application Load Balancer Lambda Target that returns "HelloWorld"
+      Handler: index.handler
+      Runtime: python3.7
+      InlineCode: |
+        def handler(event, context): 
+          return {
+            "statusCode": 200,
+            "statusDescription": "HTTP OK",
+            "isBase64Encoded": False,
+            "headers": {
+              "Content-Type": "text/html"
+            },
+            "body": "<h1>Hello from Lambda!</h1>"
+          }
+      Timeout: 1
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Scheme: internet-facing 
+      Subnets: !Ref Subnets      
+      SecurityGroups:
+      - !Ref LoadBalancerSecurityGroup
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    DependsOn: HelloWorldFunctionInvokePermission
+    Properties:
+      TargetType: lambda
+      Targets:
+      - Id: !GetAtt HelloWorldFunction.Arn
+
+  HttpListener:
+    Type: 'AWS::ElasticLoadBalancingV2::Listener'
+    Properties:
+      DefaultActions:
+      - TargetGroupArn: !Ref TargetGroup
+        Type: forward
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  LoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow http to client host
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: 0.0.0.0/0
+
+  HelloWorldFunctionInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt HelloWorldFunction.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: elasticloadbalancing.amazonaws.com
+
+Outputs:
+  LoadBalancerDNSNAme:
+    Value: !GetAtt LoadBalancer.DNSName
