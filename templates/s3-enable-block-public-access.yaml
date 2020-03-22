@@ -1,0 +1,82 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Enable S3 Block Public Access via Systems Manager Execution for single Account
+
+Resources:
+
+  Trigger:
+    Type: AWS::Events::Rule
+    Properties:
+      ScheduleExpression: rate(1 day)
+      State: "ENABLED"
+      Targets:
+        - Arn: !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:automation-definition/${EnableS3BlockPublicAccessDocument}"
+          Id: EnableS3BlockPublicAccessViaSSM
+          RoleArn: !GetAtt SSMAutomationExecutionRoleforCWEvents.Arn
+
+
+  SSMAutomationExecutionRoleforCWEvents:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: AllowStartAutomationExecution
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:StartAutomationExecution
+                Resource: !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:automation-definition/${EnableS3BlockPublicAccessDocument}:*"
+
+  EnableS3BlockPublicAccessDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      DocumentType: Automation
+      Content:
+        schemaVersion: "0.3"
+        assumeRole: !GetAtt S3BlockPublicAccessRoleForSSM.Arn
+        parameters:
+          AutomationAssumeRole:
+            type: String
+            description: (Optional) The ARN of the role that allows Automation to perform the actions on your behalf.
+            default: !GetAtt S3BlockPublicAccessRoleForSSM.Arn
+        mainSteps:
+          - name: PutAccountPublicAccessBlock
+            action: aws:executeAwsApi
+            inputs:
+              Service: s3control
+              Api:  PutPublicAccessBlock
+              PublicAccessBlockConfiguration:
+                BlockPublicAcls: True
+                BlockPublicPolicy: True
+                IgnorePublicAcls: True
+                RestrictPublicBuckets: True
+              AccountId: "{{ global:ACCOUNT_ID }}"
+            isEnd: true
+
+  S3BlockPublicAccessRoleForSSM:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ssm.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: AllowBlockPublicAccess
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:PutAccountPublicAccessBlock
+                  - s3:GetAccountPublicAccessBlock
+                Resource: '*'
