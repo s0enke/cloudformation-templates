@@ -1,0 +1,67 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Sends CodePipeline events to Slack. Powered by github.com/s0enke/cloudformation-templates
+
+Parameters:
+  SlackChannelId:
+    Type: String
+  SlackWorkspaceId:
+    Type: String
+  PipelineName:
+    Type: String
+
+Resources:
+
+  NotificationRule:
+    Type: AWS::CodeStarNotifications::NotificationRule
+    Properties:
+      Name: !Sub Pipeline${PipelineName}ToSlack
+      DetailType: FULL
+      Resource: !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${PipelineName}
+      EventTypeIds:
+        - codepipeline-pipeline-pipeline-execution-failed
+        - codepipeline-pipeline-pipeline-execution-canceled
+        - codepipeline-pipeline-pipeline-execution-started
+        - codepipeline-pipeline-pipeline-execution-resumed
+        - codepipeline-pipeline-pipeline-execution-succeeded
+        - codepipeline-pipeline-pipeline-execution-superseded
+      Targets:
+        - TargetType: SNS
+          TargetAddress: !Ref EventToChatbot
+
+  EventToChatbot:
+    Type: AWS::SNS::Topic
+
+  EventToChatbotPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics:
+        - !Ref EventToChatbot
+      PolicyDocument:
+        Statement:
+          - Sid: CWEPublishEventsToTopic
+            Effect: Allow
+            Principal:
+              Service: codestar-notifications.amazonaws.com
+            Action: sns:Publish
+            Resource: !Ref EventToChatbot
+
+  SlackChannelConfiguration:
+    Type: AWS::Chatbot::SlackChannelConfiguration
+    Properties:
+      ConfigurationName: !Ref AWS::StackName
+      IamRoleArn: !GetAtt ChatbotRole.Arn
+      SlackChannelId: !Ref SlackChannelId
+      SlackWorkspaceId: !Ref SlackWorkspaceId
+      SnsTopicArns:
+        - !Ref EventToChatbot
+
+  ChatbotRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: chatbot.amazonaws.com
+            Action: sts:AssumeRole
