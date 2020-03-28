@@ -1,0 +1,58 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Sends AWS Health events from CW Events to Slack
+
+Parameters:
+  SlackChannelId:
+    Type: String
+  SlackWorkspaceId:
+    Type: String
+
+Resources:
+
+  CWEventsToSnsRule:
+    Type: AWS::Events::Rule
+    Properties:
+      EventPattern:
+        source:
+          - aws.health
+      Targets:
+        - Arn: !Ref EventToChatbot
+          Id: TrustedAdvisorToSNS
+
+  EventToChatbot:
+    Type: AWS::SNS::Topic
+
+  EventToChatbotPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics:
+        - !Ref EventToChatbot
+      PolicyDocument:
+        Statement:
+          - Sid: CWEPublishEventsToTopic
+            Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sns:Publish
+            Resource: !Ref EventToChatbot
+
+  SlackChannelConfiguration:
+    Type: AWS::Chatbot::SlackChannelConfiguration
+    Properties:
+      ConfigurationName: !Ref AWS::StackName
+      IamRoleArn: !GetAtt ChatbotRole.Arn
+      SlackChannelId: !Ref SlackChannelId
+      SlackWorkspaceId: !Ref SlackWorkspaceId
+      SnsTopicArns:
+        - !Ref EventToChatbot
+
+  ChatbotRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: chatbot.amazonaws.com
+            Action: sts:AssumeRole
