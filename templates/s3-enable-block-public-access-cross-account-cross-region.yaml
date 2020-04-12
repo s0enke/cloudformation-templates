@@ -1,5 +1,5 @@
-AWSTemplateFormatVersion: "2010-09-09"
-Description: Enable S3 Block Public Access via Systems Manager Execution for single Account
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Enable S3 Block Public Access via Systems Manager Execution
 
 Resources:
 
@@ -7,9 +7,9 @@ Resources:
     Type: AWS::Events::Rule
     Properties:
       ScheduleExpression: rate(1 day)
-      State: "ENABLED"
+      State: 'ENABLED'
       Targets:
-        - Arn: !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:automation-definition/${ExecuteCrossAccountCrossRegion}"
+        - Arn: !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:automation-definition/${ExecuteCrossAccountCrossRegion}'
           Id: EnableS3BlockPublicAccessViaSSM
           RoleArn: !GetAtt SSMAutomationExecutionRoleforCWEvents.Arn
 
@@ -32,14 +32,14 @@ Resources:
               - Effect: Allow
                 Action:
                   - ssm:StartAutomationExecution
-                Resource: !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:automation-definition/${ExecuteCrossAccountCrossRegion}:*"
+                Resource: !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:automation-definition/${ExecuteCrossAccountCrossRegion}:*'
 
   ExecuteCrossAccountCrossRegion:
     Type: AWS::SSM::Document
     Properties:
       DocumentType: Automation
       Content:
-        schemaVersion: "0.3"
+        schemaVersion: '0.3'
         assumeRole: !GetAtt StartExecutionRoleForSSM.Arn
         mainSteps:
           - name: StartAutomationExecution
@@ -73,14 +73,14 @@ Resources:
             Statement:
               - Effect: Allow
                 Action: ssm:StartAutomationExecution
-                Resource: !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:automation-definition/${EnableS3BlockPublicAccessDocument}:*"
+                Resource: !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:automation-definition/${EnableS3BlockPublicAccessDocument}:*'
 
   EnableS3BlockPublicAccessDocument:
     Type: AWS::SSM::Document
     Properties:
       DocumentType: Automation
       Content:
-        schemaVersion: "0.3"
+        schemaVersion: '0.3'
         mainSteps:
           - name: PutAccountPublicAccessBlock
             action: aws:executeAwsApi
@@ -92,7 +92,7 @@ Resources:
                 BlockPublicPolicy: True
                 IgnorePublicAcls: True
                 RestrictPublicBuckets: True
-              AccountId: "{{ global:ACCOUNT_ID }}"
+              AccountId: '{{ global:ACCOUNT_ID }}'
             isEnd: true
 
   OrganizationalAccessRoleForSSM:
