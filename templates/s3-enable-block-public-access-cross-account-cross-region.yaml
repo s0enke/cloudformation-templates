@@ -81,7 +81,6 @@ Resources:
       DocumentType: Automation
       Content:
         schemaVersion: "0.3"
-        assumeRole: !GetAtt OrganizationalAccessRoleForSSM.Arn
         mainSteps:
           - name: PutAccountPublicAccessBlock
             action: aws:executeAwsApi
