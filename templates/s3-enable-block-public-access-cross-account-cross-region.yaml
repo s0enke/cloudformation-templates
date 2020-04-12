@@ -67,6 +67,8 @@ Resources:
               Service: ssm.amazonaws.com
             Action: sts:AssumeRole
       Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSOrganizationsReadOnlyAccess
       Policies:
         - PolicyName: AllowStartAutomationExecution
           PolicyDocument:
@@ -74,6 +76,12 @@ Resources:
               - Effect: Allow
                 Action: ssm:StartAutomationExecution
                 Resource: !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:automation-definition/${EnableS3BlockPublicAccessDocument}:*'
+        - PolicyName: AllowCallCrossAccountCrossRegionAutomation
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action: sts:AssumeRole
+                Resource: arn:aws:iam::*:role/AWSControlTowerExecution
 
   EnableS3BlockPublicAccessDocument:
     Type: AWS::SSM::Document
@@ -94,24 +102,3 @@ Resources:
                 RestrictPublicBuckets: True
               AccountId: '{{ global:ACCOUNT_ID }}'
             isEnd: true
-
-  OrganizationalAccessRoleForSSM:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: ssm.amazonaws.com
-            Action: sts:AssumeRole
-      Path: /
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AWSOrganizationsReadOnlyAccess
-      Policies:
-        - PolicyName: AllowCallCrossAccountCrossRegionAutomation
-          PolicyDocument:
-            Statement:
-              - Effect: Allow
-                Action: sts:AssumeRole
-                Resource: arn:aws:iam::*:role/AWSControlTowerExecution
