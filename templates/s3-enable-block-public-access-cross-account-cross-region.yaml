@@ -115,9 +115,3 @@ Resources:
               - Effect: Allow
                 Action: sts:AssumeRole
                 Resource: arn:aws:iam::*:role/AWSControlTowerExecution
-        - PolicyName: AllowAllTemp
-          PolicyDocument:
-            Statement:
-              - Effect: Allow
-                Action: '*'
-                Resource: '*'
