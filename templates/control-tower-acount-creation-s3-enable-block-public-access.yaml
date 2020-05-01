@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Enable S3 Block Public Access for AWS Accounts created through AWS Control Tower
+Description: Enable S3 Block Public Access for AWS Accounts created through AWS Control Tower. Powered by github.com/s0enke/cloudformation-templates
 
 Resources:
 
