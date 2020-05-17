@@ -1,0 +1,36 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Parameters:
+  SSOUserEmail:
+    Type: String
+  AccountEmail:
+    Type: String
+  SSOUserFirstName:
+    Type: String
+  SSOUserLastName:
+    Type: String
+  ManagedOrganizationalUnit:
+    Type: String
+  AccountName:
+    Type: String
+
+Resources:
+  Account:
+    Type: AWS::ServiceCatalog::CloudFormationProvisionedProduct
+    Properties:
+      ProductName: AWS Control Tower Account Factory
+      ProvisionedProductName: !Ref AccountName
+      ProvisioningArtifactName: AWS Control Tower Account Factory
+      ProvisioningParameters:
+        - Key: SSOUserEmail
+          Value: !Ref SSOUserEmail
+        - Key: AccountEmail
+          Value: !Ref AccountEmail
+        - Key: SSOUserFirstName
+          Value: !Ref SSOUserFirstName
+        - Key: SSOUserLastName
+          Value: !Ref SSOUserLastName
+        - Key: ManagedOrganizationalUnit
+          Value: !Ref ManagedOrganizationalUnit
+        - Key: AccountName
+          Value: !Ref AccountName
