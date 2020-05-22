@@ -27,9 +27,10 @@ Resources:
           InputTransformer:
             InputPathsMap:
               AwsAccountId: $.detail.serviceEventDetails.createManagedAccountStatus.account.accountId
-            InputTemplate: |
+            InputTemplate: !Sub |
               {
-                "AwsAccountId": [<AwsAccountId>]
+                "AwsAccountId": [<AwsAccountId>],
+                "DocumentToExecute": ["${EnableS3BlockPublicAccessDocument}"]
               }
 
   SSMAutomationExecutionRoleforCWEvents:
@@ -62,13 +63,15 @@ Resources:
         parameters:
           AwsAccountId:
             type: String
+          DocumentToExecute:
+            type: String
         mainSteps:
           - name: StartAutomationExecution
             action: aws:executeAwsApi
             inputs:
               Service: ssm
               Api: StartAutomationExecution
-              DocumentName: !Ref EnableS3BlockPublicAccessDocument
+              DocumentName: '{{ DocumentToExecute }}'
               TargetLocations:
                 - ExecutionRoleName: AWSControlTowerExecution
                   Accounts:
