@@ -1,0 +1,56 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: |
+  Unsubscribe all AWS accounts in the AWS Organization from marketing mails at once. Powered by github.com/s0enke/cloudformation-templates
+  Kudos to @iann0036 https://github.com/iann0036/aws-account-controller
+
+Resources:
+
+  ExecuteUnsubscribeOrgWide:
+    Type: AWS::SSM::Document
+    Properties:
+      DocumentType: Automation
+      Content:
+        schemaVersion: '0.3'
+        assumeRole: !GetAtt ExecuteUnsubscribeOrgWideRole.Arn
+        mainSteps:
+          - name: ExecuteUnsubscribeOrgWide
+            action: aws:executeScript
+            inputs:
+              Runtime: python3.7
+              Handler: handler
+              Script: |
+                import boto3
+                import urllib3
+                from urllib.parse import quote
+                import logging
+                import sys
+                logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+
+                def handler(events, context):
+                  organizations = boto3.client('organizations')
+                  http = urllib3.PoolManager()
+                  paginator = organizations.get_paginator('list_accounts')
+                  for page in paginator.paginate():
+                    for account in page['Accounts']:
+                      # Adapted from https://github.com/iann0036/aws-account-controller
+                      unsubbody = "FirstName=&LastName=&Email=%s&Company=&Phone=&Country=&preferenceCenterCategory=no&preferenceCenterGettingStarted=no&preferenceCenterOnlineInPersonEvents=no&preferenceCenterMonthlyAWSNewsletter=no&preferenceCenterTrainingandBestPracticeContent=no&preferenceCenterProductandServiceAnnoucements=no&preferenceCenterSurveys=no&PreferenceCenter_AWS_Partner_Events_Co__c=no&preferenceCenterOtherAWSCommunications=no&PreferenceCenter_Language_Preference__c=&Title=&Job_Role__c=&Industry=&Level_of_AWS_Usage__c=&LDR_Solution_Area__c=&Unsubscribed=yes&UnsubscribedReason=&unsubscribedReasonOther=&useCaseMultiSelect=&zOPFormValidationBotVerification=&Website_Referral_Code__c=&zOPURLTrackingTRKCampaign=&zOPEmailValidationHygiene=validate&formid=34006&formVid=34006" % quote(account["Email"])
+                      try:
+                        http.request("POST",'https://pages.awscloud.com/index.php/leadCapture/save2', body=unsubbody, headers={'Content-type': 'application/x-www-form-urlencoded'}, retries=10)
+                        logging.info("Unsubscribed {} {} from marketing mails".format(account["Email"], account["Id"]))
+                      except:
+                        logging.info("Error unsubscribing {} {} from marketing mails".format(account["Email"], account["Id"]))
+
+
+  ExecuteUnsubscribeOrgWideRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ssm.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSOrganizationsReadOnlyAccess
