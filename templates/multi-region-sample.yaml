@@ -1,0 +1,24 @@
+
+AWSTemplateFormatVersion: 2010-09-09
+Description: Multi Region Rollout via StackSets sample ~ based on https://github.com/s0enke/aws-cloudformation-resource-providers-cloudformation/tree/superluminar-temp
+
+Resources:
+  Stackset:
+    Type: Superluminar::CloudFormation::StackSet
+    Properties:
+      StackSetName: !Sub ${AWS::StackName}-US-EAST-1
+      PermissionModel: SELF_MANAGED
+      StackInstancesGroup:
+        - Regions:
+          - us-east-1
+          - eu-west-1
+          DeploymentTargets:
+            Accounts:
+              - !Ref AWS::AccountId
+      TemplateBody: |
+        AWSTemplateFormatVersion: 2010-09-09
+        Resources:
+          S3Bucket:
+            Type: AWS::S3::Bucket
+            Properties:
+              BucketName: !Sub aws-multi-region-test-${AWS::Region}
