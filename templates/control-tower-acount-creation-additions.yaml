@@ -1,0 +1,138 @@
+Description: Enable various sane defaults for AWS Accounts created through AWS Control Tower. Powered by github.com/s0enke/cloudformation-templates
+
+Parameters:
+  EnableS3BlockPublicAccess:
+    Type: String
+    AllowedValues:
+      - yes
+      - no
+    Default: yes
+    Description: Enable S3 Block Public Access
+
+Conditions:
+  EnableS3BlockPublicAccess: !Equals [!Ref EnableS3BlockPublicAccess, yes]
+
+Resources:
+
+  Trigger:
+    Type: AWS::Events::Rule
+    Properties:
+      EventPattern:
+        detail-type:
+          - AWS Service Event via CloudTrail
+        source:
+          - aws.controltower
+        detail:
+          serviceEventDetails:
+            createManagedAccountStatus:
+              state:
+                - SUCCEEDED
+          eventName:
+            - CreateManagedAccount
+
+      State: ENABLED
+      Targets:
+        - Arn: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:automation-definition/${ExecuteCrossAccount}
+          Id: EnableS3BlockPublicAccessViaSSM
+          RoleArn: !GetAtt SSMAutomationExecutionRoleforCWEvents.Arn
+          InputTransformer:
+            InputPathsMap:
+              AwsAccountId: $.detail.serviceEventDetails.createManagedAccountStatus.account.accountId
+            InputTemplate: !Sub |
+              {
+                "AwsAccountId": [<AwsAccountId>]
+              }
+
+  SSMAutomationExecutionRoleforCWEvents:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: AllowStartAutomationExecution
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:StartAutomationExecution
+                Resource: !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:automation-definition/${ExecuteCrossAccount}:*'
+
+  ExecuteCrossAccount:
+    Type: AWS::SSM::Document
+    Properties:
+      DocumentType: Automation
+      Content:
+        schemaVersion: '0.3'
+        assumeRole: !GetAtt StartExecutionRoleForSSM.Arn
+        parameters:
+          AwsAccountId:
+            type: String
+        mainSteps:
+          - name: StartAutomationExecution
+            action: aws:executeAwsApi
+            inputs:
+              Service: ssm
+              Api: StartAutomationExecution
+              DocumentName: !Ref ControlTowerAccountCreationAdditionsDocument
+              TargetLocations:
+                - ExecutionRoleName: AWSControlTowerExecution
+                  Accounts:
+                    - '{{ AwsAccountId }}'
+                  Regions:
+                    - !Ref AWS::Region
+            isEnd: true
+
+  StartExecutionRoleForSSM:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ssm.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSOrganizationsReadOnlyAccess
+      Policies:
+        - PolicyName: AllowStartAutomationExecution
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action: ssm:StartAutomationExecution
+                Resource: !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:automation-definition/${ControlTowerAccountCreationAdditionsDocument}:*'
+        - PolicyName: AllowCallCrossAccountAutomation
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action: sts:AssumeRole
+                Resource: arn:aws:iam::*:role/AWSControlTowerExecution
+
+  ControlTowerAccountCreationAdditionsDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      DocumentType: Automation
+      Content:
+        schemaVersion: '0.3'
+        mainSteps:
+          - !If
+            - EnableS3BlockPublicAccess
+            - name: PutAccountPublicAccessBlock
+              action: aws:executeAwsApi
+              inputs:
+                Service: s3control
+                Api:  PutPublicAccessBlock
+                PublicAccessBlockConfiguration:
+                  BlockPublicAcls: True
+                  BlockPublicPolicy: True
+                  IgnorePublicAcls: True
+                  RestrictPublicBuckets: True
+                AccountId: '{{ global:ACCOUNT_ID }}'
+            - !Ref AWS::NoValue
