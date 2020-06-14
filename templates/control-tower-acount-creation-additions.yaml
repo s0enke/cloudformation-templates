@@ -8,9 +8,17 @@ Parameters:
       - no
     Default: yes
     Description: Enable S3 Block Public Access
+  EnableEbsEncryptionByDefault:
+    Type: String
+    AllowedValues:
+      - yes
+      - no
+    Default: yes
+    Description: Enable EBS Encryption by default
 
 Conditions:
   EnableS3BlockPublicAccess: !Equals [!Ref EnableS3BlockPublicAccess, yes]
+  EnableEbsEncryptionByDefault: !Equals [!Ref EnableEbsEncryptionByDefault, yes]
 
 Resources:
 
@@ -135,4 +143,12 @@ Resources:
                   IgnorePublicAcls: True
                   RestrictPublicBuckets: True
                 AccountId: '{{ global:ACCOUNT_ID }}'
+            - !Ref AWS::NoValue
+          - !If
+            - EnableEbsEncryptionByDefault
+            - name: EnableEbsEncryptionByDefault
+              action: aws:executeAwsApi
+              inputs:
+                Service: ec2
+                Api:  EnableEbsEncryptionByDefault
             - !Ref AWS::NoValue
