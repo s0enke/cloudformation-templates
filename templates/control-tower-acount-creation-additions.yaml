@@ -55,7 +55,7 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
-        Version: '2012-10-17'
+        Version: 2012-10-17
         Statement:
           - Effect: Allow
             Principal:
@@ -69,7 +69,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - ssm:StartAutomationExecution
-                Resource: !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:automation-definition/${ExecuteCrossAccount}:*'
+                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:automation-definition/${ExecuteCrossAccount}:*
 
   ExecuteCrossAccount:
     Type: AWS::SSM::Document
@@ -100,7 +100,7 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
-        Version: '2012-10-17'
+        Version: 2012-10-17
         Statement:
           - Effect: Allow
             Principal:
@@ -115,7 +115,7 @@ Resources:
             Statement:
               - Effect: Allow
                 Action: ssm:StartAutomationExecution
-                Resource: !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:automation-definition/${ControlTowerAccountCreationAdditionsDocument}:*'
+                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:automation-definition/${ControlTowerAccountCreationAdditionsDocument}:*
         - PolicyName: AllowCallCrossAccountAutomation
           PolicyDocument:
             Statement:
