@@ -15,10 +15,15 @@ Parameters:
       - no
     Default: yes
     Description: Enable EBS Encryption by default
+  Regions:
+    Type: CommaDelimitedList
+    Description: Roll out additions to these regions. Default is the current region.
+    Default: ''
 
 Conditions:
   EnableS3BlockPublicAccess: !Equals [!Ref EnableS3BlockPublicAccess, yes]
   EnableEbsEncryptionByDefault: !Equals [!Ref EnableEbsEncryptionByDefault, yes]
+  UseSameRegionAsCfnStack: !Equals [!Join ['', !Ref Regions], '']
 
 Resources:
 
@@ -82,19 +87,36 @@ Resources:
           AwsAccountId:
             type: String
         mainSteps:
-          - name: StartAutomationExecution
-            action: aws:executeAwsApi
-            inputs:
-              Service: ssm
-              Api: StartAutomationExecution
-              DocumentName: !Ref ControlTowerAccountCreationAdditionsDocument
-              TargetLocations:
-                - ExecutionRoleName: AWSControlTowerExecution
-                  Accounts:
-                    - '{{ AwsAccountId }}'
-                  Regions:
-                    - !Ref AWS::Region
-            isEnd: true
+          - !If
+            - EnableS3BlockPublicAccess
+            - name: StartAutomationExecutionEnableS3BlockPublicAccess
+              action: aws:executeAwsApi
+              inputs:
+                Service: ssm
+                Api: StartAutomationExecution
+                DocumentName: !Ref ControlTowerAccountCreationEnableS3BlockPublicAccess
+                TargetLocations:
+                  - ExecutionRoleName: AWSControlTowerExecution
+                    Accounts:
+                      - '{{ AwsAccountId }}'
+                    Regions:
+                      - !Ref AWS::Region
+            - !Ref AWS::NoValue
+          - !If
+            - EnableS3BlockPublicAccess
+            - name: StartAutomationExecutionEnableEbsEncryptionByDefault
+              action: aws:executeAwsApi
+              inputs:
+                Service: ssm
+                Api: StartAutomationExecution
+                DocumentName: !Ref ControlTowerAccountCreationEnableEbsEncryptionByDefault
+                TargetLocations:
+                  - ExecutionRoleName: AWSControlTowerExecution
+                    Accounts:
+                      - '{{ AwsAccountId }}'
+                    Regions:
+                      - !Ref AWS::Region
+            - !Ref AWS::NoValue
 
   StartExecutionRoleForSSM:
     Type: AWS::IAM::Role
@@ -115,7 +137,7 @@ Resources:
             Statement:
               - Effect: Allow
                 Action: ssm:StartAutomationExecution
-                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:automation-definition/${ControlTowerAccountCreationAdditionsDocument}:*
+                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:automation-definition/${ControlTowerAccountCreationEnableS3BlockPublicAccess}:*
         - PolicyName: AllowCallCrossAccountAutomation
           PolicyDocument:
             Statement:
@@ -123,32 +145,35 @@ Resources:
                 Action: sts:AssumeRole
                 Resource: arn:aws:iam::*:role/AWSControlTowerExecution
 
-  ControlTowerAccountCreationAdditionsDocument:
+  ControlTowerAccountCreationEnableS3BlockPublicAccess:
     Type: AWS::SSM::Document
     Properties:
       DocumentType: Automation
       Content:
         schemaVersion: '0.3'
         mainSteps:
-          - !If
-            - EnableS3BlockPublicAccess
-            - name: PutAccountPublicAccessBlock
-              action: aws:executeAwsApi
-              inputs:
-                Service: s3control
-                Api:  PutPublicAccessBlock
-                PublicAccessBlockConfiguration:
-                  BlockPublicAcls: True
-                  BlockPublicPolicy: True
-                  IgnorePublicAcls: True
-                  RestrictPublicBuckets: True
-                AccountId: '{{ global:ACCOUNT_ID }}'
-            - !Ref AWS::NoValue
-          - !If
-            - EnableEbsEncryptionByDefault
-            - name: EnableEbsEncryptionByDefault
-              action: aws:executeAwsApi
-              inputs:
-                Service: ec2
-                Api:  EnableEbsEncryptionByDefault
-            - !Ref AWS::NoValue
+          - name: PutAccountPublicAccessBlock
+            action: aws:executeAwsApi
+            inputs:
+              Service: s3control
+              Api:  PutPublicAccessBlock
+              PublicAccessBlockConfiguration:
+                BlockPublicAcls: True
+                BlockPublicPolicy: True
+                IgnorePublicAcls: True
+                RestrictPublicBuckets: True
+              AccountId: '{{ global:ACCOUNT_ID }}'
+
+
+  ControlTowerAccountCreationEnableEbsEncryptionByDefault:
+    Type: AWS::SSM::Document
+    Properties:
+      DocumentType: Automation
+      Content:
+        schemaVersion: '0.3'
+        mainSteps:
+          - name: EnableEbsEncryptionByDefault
+            action: aws:executeAwsApi
+            inputs:
+              Service: ec2
+              Api:  EnableEbsEncryptionByDefault
