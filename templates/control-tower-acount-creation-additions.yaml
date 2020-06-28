@@ -4,16 +4,16 @@ Parameters:
   EnableS3BlockPublicAccess:
     Type: String
     AllowedValues:
-      - yes
-      - no
-    Default: yes
+      - 'yes'
+      - 'no'
+    Default: 'yes'
     Description: Enable S3 Block Public Access
   EnableEbsEncryptionByDefault:
     Type: String
     AllowedValues:
-      - yes
-      - no
-    Default: yes
+      - 'yes'
+      - 'no'
+    Default: 'yes'
     Description: Enable EBS Encryption by default
   Regions:
     Type: CommaDelimitedList
@@ -21,8 +21,8 @@ Parameters:
     Default: ''
 
 Conditions:
-  EnableS3BlockPublicAccess: !Equals [!Ref EnableS3BlockPublicAccess, yes]
-  EnableEbsEncryptionByDefault: !Equals [!Ref EnableEbsEncryptionByDefault, yes]
+  EnableS3BlockPublicAccess: !Equals [!Ref EnableS3BlockPublicAccess, 'yes']
+  EnableEbsEncryptionByDefault: !Equals [!Ref EnableEbsEncryptionByDefault, 'yes']
   UseSameRegionAsCfnStack: !Equals [!Join ['', !Ref Regions], '']
 
 Resources:
