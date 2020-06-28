@@ -103,19 +103,32 @@ Resources:
                       - !Ref AWS::Region
             - !Ref AWS::NoValue
           - !If
-            - EnableS3BlockPublicAccess
-            - name: StartAutomationExecutionEnableEbsEncryptionByDefault
-              action: aws:executeAwsApi
-              inputs:
-                Service: ssm
-                Api: StartAutomationExecution
-                DocumentName: !Ref ControlTowerAccountCreationEnableEbsEncryptionByDefault
-                TargetLocations:
-                  - ExecutionRoleName: AWSControlTowerExecution
-                    Accounts:
-                      - '{{ AwsAccountId }}'
-                    Regions:
-                      - !Ref AWS::Region
+            - EnableEbsEncryptionByDefault
+            - !If
+              - UseSameRegionAsCfnStack
+              - name: StartAutomationExecutionEnableEbsEncryptionByDefault
+                action: aws:executeAwsApi
+                inputs:
+                  Service: ssm
+                  Api: StartAutomationExecution
+                  DocumentName: !Ref ControlTowerAccountCreationEnableEbsEncryptionByDefault
+                  TargetLocations:
+                    - ExecutionRoleName: AWSControlTowerExecution
+                      Accounts:
+                        - '{{ AwsAccountId }}'
+                      Regions:
+                        - !Ref AWS::Region
+              - name: StartAutomationExecutionEnableEbsEncryptionByDefault
+                action: aws:executeAwsApi
+                inputs:
+                  Service: ssm
+                  Api: StartAutomationExecution
+                  DocumentName: !Ref ControlTowerAccountCreationEnableEbsEncryptionByDefault
+                  TargetLocations:
+                    - ExecutionRoleName: AWSControlTowerExecution
+                      Accounts:
+                        - '{{ AwsAccountId }}'
+                      Regions: !Ref Regions
             - !Ref AWS::NoValue
 
   StartExecutionRoleForSSM:
@@ -137,7 +150,9 @@ Resources:
             Statement:
               - Effect: Allow
                 Action: ssm:StartAutomationExecution
-                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:automation-definition/${ControlTowerAccountCreationEnableS3BlockPublicAccess}:*
+                Resource:
+                 - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:automation-definition/${ControlTowerAccountCreationEnableS3BlockPublicAccess}:*
+                 - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:automation-definition/${ControlTowerAccountCreationEnableEbsEncryptionByDefault}:*
         - PolicyName: AllowCallCrossAccountAutomation
           PolicyDocument:
             Statement:
