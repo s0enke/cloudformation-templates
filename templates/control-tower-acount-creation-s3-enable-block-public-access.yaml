@@ -3,35 +3,7 @@ Description: Enable S3 Block Public Access for AWS Accounts created through AWS 
 
 Resources:
 
-  Trigger:
-    Type: AWS::Events::Rule
-    Properties:
-      EventPattern:
-        detail-type:
-          - AWS Service Event via CloudTrail
-        source:
-          - aws.controltower
-        detail:
-          serviceEventDetails:
-            createManagedAccountStatus:
-              state:
-                - SUCCEEDED
-          eventName:
-            - CreateManagedAccount
 
-      State: ENABLED
-      Targets:
-        - Arn: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:automation-definition/${ExecuteCrossAccount}
-          Id: EnableS3BlockPublicAccessViaSSM
-          RoleArn: !GetAtt SSMAutomationExecutionRoleforCWEvents.Arn
-          InputTransformer:
-            InputPathsMap:
-              AwsAccountId: $.detail.serviceEventDetails.createManagedAccountStatus.account.accountId
-            InputTemplate: !Sub |
-              {
-                "AwsAccountId": [<AwsAccountId>],
-                "DocumentToExecute": ["${EnableS3BlockPublicAccessDocument}"]
-              }
 
   SSMAutomationExecutionRoleforCWEvents:
     Type: AWS::IAM::Role
