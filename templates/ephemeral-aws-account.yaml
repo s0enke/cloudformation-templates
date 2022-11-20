@@ -1,0 +1,35 @@
+Description: Provisions an AWS account on stack creation and suspends the account at stack deletion, also creates an SSO association
+Parameters:
+  OrgRootId:
+    Type: String
+  AccountEmailAddress:
+    Type: String
+  AccountName:
+    Type: String
+  SsoInstanceArn:
+    Type: String
+  SsoPermissionSetArn:
+    Type: String
+  SsoPrincipalId:
+    Type: String
+  SsoPrincipalType:
+    Type: String
+    AllowedValues: [GROUP, USER]
+Resources:
+  EphemeralAccount:
+    Type: AWS::Organizations::Account
+    DeletionPolicy: Delete
+    Properties:
+      AccountName: !Ref AccountName
+      Email: !Ref AccountEmailAddress
+      ParentIds:
+        - !Ref OrgRootId
+  SSOAssignment:
+    Type: AWS::SSO::Assignment
+    Properties:
+      InstanceArn: !Ref SsoInstanceArn
+      PermissionSetArn: !Ref SsoPermissionSetArn
+      PrincipalId: !Ref SsoPrincipalId
+      PrincipalType: !Ref SsoPrincipalType
+      TargetId: !Ref EphemeralAccount
+      TargetType: AWS_ACCOUNT
