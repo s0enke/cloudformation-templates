@@ -132,7 +132,7 @@ Resources:
       ServiceRole: !Ref DeployWebsiteRole
       Source:
         Type: CODEPIPELINE
-        BuildSpec: |
+        BuildSpec: !Sub |
           version: 0.1
           phases:
             install:
@@ -144,6 +144,7 @@ Resources:
             post_build:
               commands:
                 - aws s3 sync public/ s3://$WEBSITE_BUCKET/ --delete
+                - aws cloudfront create-invalidation --distribution-id ${WebsiteCdn} --paths '/*'
 
   DeployWebsiteRole:
     Type: AWS::IAM::Role
