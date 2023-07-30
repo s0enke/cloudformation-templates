@@ -1,4 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
+Transform: 'AWS::LanguageExtensions'
 Description: Serverless deployment pipeline for a website powered by Hexo, including a CDN, HTTPS/Cert and Route53 records
 Parameters:
   GithubOauthToken:
@@ -183,6 +184,7 @@ Resources:
           AcmCertificateArn: !Ref WebsiteCertificate
           SslSupportMethod: sni-only
         HttpVersion: http2
+        IPV6Enabled: true
 #        Logging:
 #          Bucket: !GetAtt WebsiteCdnLogBucket.DomainName
 #          IncludeCookies: true
@@ -231,21 +233,29 @@ Resources:
           AcmCertificateArn: !Ref WebsiteCertificate
           SslSupportMethod: sni-only
         HttpVersion: http2
+        IPV6Enabled: true
 
-  DNS:
-    Type: AWS::Route53::RecordSetGroup
-    Properties:
-      HostedZoneName: !Sub ${ApexDomainName}.
-      RecordSets:
-      - Name: !Ref ApexDomainName
-        Type: A
-        AliasTarget:
-          # Magic AWS number:  For CloudFront, use Z2FDTNDATAQYW2.
-          HostedZoneId: Z2FDTNDATAQYW2
-          DNSName: !GetAtt WebsiteCdn.DomainName
-      - Name: !Ref RedirectDomainName
-        Type: A
-        AliasTarget:
-          # Magic AWS number:  For CloudFront, use Z2FDTNDATAQYW2.
-          HostedZoneId: Z2FDTNDATAQYW2
-          DNSName: !GetAtt CloudFrontDistributionRedirect.DomainName
+  'Fn::ForEach::DNSRecordSetType':
+    - RecordSetType
+    - [A, AAAA]
+    - 'Fn::ForEach::DNSRecordSetTarget':
+      - Target
+      - [ WebsiteCdn, CloudFrontDistributionRedirect]
+      - DNS${RecordSetType}${Target}:
+          HostedZoneName: !Sub ${ApexDomainName}.
+          Type: AWS::Route53::RecordSet
+          Properties:
+            HostedZoneName: !Sub ${ApexDomainName}.
+            Name: !Ref
+              "Fn::FindInMap": [ DNSRecordSets, DNSRecordSets, !Ref Target ]
+            Type: !Ref RecordSetType
+            AliasTarget:
+              # Magic AWS number:  For CloudFront, use Z2FDTNDATAQYW2.
+              HostedZoneId: Z2FDTNDATAQYW2
+              DNSName: !GetAtt [!Ref Target, DomainName ]
+
+Mappings:
+  DNSRecordSets:
+    DNSRecordSets:
+      WebsiteCdn: ApexDomainName
+      CloudFrontDistributionRedirect: RedirectDomainName
