@@ -2,15 +2,12 @@ AWSTemplateFormatVersion: "2010-09-09"
 Transform: 'AWS::LanguageExtensions'
 Description: Serverless deployment pipeline for a website powered by Hexo, including a CDN, HTTPS/Cert and Route53 records
 Parameters:
-  GithubOauthToken:
+  FullRepositoryId:
     Type: String
-  GithubRepoOwner:
+  BranchName:
     Type: String
-  GithubRepoName:
+  CodestarConnectionArn:
     Type: String
-  GithubRepoBranch:
-    Type: String
-    Default: master
   ApexDomainName:
     Type: String
   RedirectDomainName:
@@ -28,10 +25,9 @@ Metadata:
       - Label:
           default: Source Code Repository
         Parameters:
-          - GithubRepoOwner
-          - GithubRepoName
-          - GithubRepoBranch
-          - GithubOauthToken
+          - CodestarConnectionArn
+          - FullRepositoryId
+          - BranchName
 Conditions:
   HasErrorDocument: !Not [!Equals [!Ref ErrorDocument, '']]
 Resources:
@@ -74,17 +70,16 @@ Resources:
             - Name: SourceAction
               ActionTypeId:
                 Category: Source
-                Owner: ThirdParty
+                Owner: AWS
                 Version: 1
-                Provider: GitHub
+                Provider: CodeStarSourceConnection
               InputArtifacts: []
               OutputArtifacts:
                 - Name: SourceOutput
               Configuration:
-                Owner: !Ref GithubRepoOwner
-                Repo: !Ref GithubRepoName
-                Branch: !Ref GithubRepoBranch
-                OAuthToken: !Ref GithubOauthToken
+                FullRepositoryId: !Ref FullRepositoryId
+                BranchName: !Ref BranchName
+                ConnectionArn: !Ref CodestarConnectionArn
               RunOrder: 1
         - Name: DeployWebsite
           Actions:

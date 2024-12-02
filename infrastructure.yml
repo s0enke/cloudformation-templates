@@ -1,9 +1,9 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Infrastructure for CloudFormation templates, e.g. pipeline and bucket 
+Description: Infrastructure for CloudFormation templates, e.g. pipeline and bucket
 Parameters:
   TemplateBucketName:
     Type: String
-  GithubOauthToken:
+  CodestarConnectionArn:
     Type: String
   DeploymentStage:
     Type: String
@@ -52,18 +52,16 @@ Resources:
               Name: SourceAction
               ActionTypeId:
                 Category: Source
-                Owner: ThirdParty
+                Owner: AWS
                 Version: 1
-                Provider: GitHub
+                Provider: CodeStarSourceConnection
               OutputArtifacts:
                 - Name: SourceOutput
               Configuration:
-                Owner: s0enke
-                Repo: cloudformation-templates
-                Branch: master
-                OAuthToken:
-                  Ref: GithubOauthToken
-              RunOrder: 1        
+                FullRepositoryId: s0enke/cloudformation-templates
+                BranchName: master
+                ConnectionArn: !Ref CodestarConnectionArn
+              RunOrder: 1
         - Name: DeploySelf
           Actions:
           - Name: DeploySelfAction
@@ -81,7 +79,7 @@ Resources:
               RoleArn: !GetAtt DeploySelfActionRole.Arn
               StackName: !Ref AWS::StackName
               TemplatePath: 'SourceOutput::infrastructure.yml'
-              ParameterOverrides: !Sub '{"TemplateBucketName": "${TemplateBucketName}", "GithubOauthToken": "${GithubOauthToken}", "DeploymentStage": "${DeploymentStage}"}'
+              ParameterOverrides: !Sub '{"TemplateBucketName": "${TemplateBucketName}", "CodestarConnectionArn": "${CodestarConnectionArn}", "DeploymentStage": "${DeploymentStage}"}'
         - Name: ValidateAndDeployTemplates
           Actions:
             - InputArtifacts:
